@@ -1,11 +1,11 @@
-# 📊 Reportes - Extensión Profesional para Burp Suite
+# 📊 Reportes - Extensión para Burp Suite
 
 ![Version](https://img.shields.io/badge/version-7.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Burp](https://img.shields.io/badge/Burp%20Suite-Community%20%7C%20Professional-orange.svg)
 ![Python](https://img.shields.io/badge/python-2.7%20(Jython)-yellow.svg)
 
-**Reportes** es una extensión profesional de reportería para Burp Suite que transforma la documentación de vulnerabilidades en un proceso automatizado, eficiente y profesional.
+**Reportes** es una extensión de reportería para Burp Suite que transforma la documentación de vulnerabilidades en un proceso automatizado, eficiente y profesional.
 
 <p align="center">
   <img src="https://img.shields.io/badge/OWASP-Top%2010%202021-red.svg" alt="OWASP Top 10">
