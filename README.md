@@ -87,14 +87,14 @@ Inicia Burp Suite (Community o Professional Edition)
 
 #### 2.2. Ve a la configuración de extensiones
 
-1. Click en la pestaña **"Extender"**
+1. Click en la pestaña **"Extensions"**
 2. Click en la sub-pestaña **"Options"**
 
 ```
 ┌─────────────────────────────────────────┐
 │ Burp Suite                              │
 ├─────────────────────────────────────────┤
-│ Dashboard  Target  Proxy  [Extender] .. │
+│ Dashboard  Target  Proxy  [Extensions] .. │
 │                                         │
 │ ┌───────────────────────────────────┐  │
 │ │ [Extensions] [BApp Store] Options │  │
@@ -167,12 +167,12 @@ wget https://github.com/tuusuario/burp-reportes/releases/latest/download/Reporte
 
 #### 4.1. Abre el diálogo de extensiones
 
-1. En Burp Suite, ve a **"Extender"** → **"Extensions"**
+1. En Burp Suite, ve a **"Extensions"** → **"Extensions"**
 2. Click en el botón **"Add"**
 
 ```
 ┌──────────────────────────────────────────┐
-│ Extender > Extensions                    │
+│ Extensions > Extensions                    │
 ├──────────────────────────────────────────┤
 │ ┌─────┐                                  │
 │ │ Add │  Remove                          │
@@ -234,7 +234,7 @@ En el diálogo "Load Burp Extension":
 │ Output:                                          │
 ├──────────────────────────────────────────────────┤
 │ ================================================ │
-│ >>> Reportes Professional v7.0                   │
+│ >>> Reportesfessional v7.0                   │
 │ >>> Enhanced Edition                             │
 │ >>> Caracteristicas:                             │
 │     - Auto-save/load automatico                  │
@@ -256,23 +256,23 @@ Click en **"Close"**
 
 #### 5.1. Verifica la nueva pestaña
 
-Deberías ver una nueva pestaña llamada **"Reportes Pro"** en la barra superior de Burp:
+Deberías ver una nueva pestaña llamada **"Reportes"** en la barra superior de Burp:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ Dashboard  Target  Proxy  Intruder  [Reportes Pro]  │
+│ Dashboard  Target  Proxy  Intruder  [Reportes]  │
 └──────────────────────────────────────────────────────┘
 ```
 
 #### 5.2. Verifica la extensión cargada
 
-En **Extender** → **Extensions**, deberías ver:
+En **Extensions** → **Extensions**, deberías ver:
 
 ```
 ┌────────────────────────────────────────────────────┐
 │ Loaded Extensions:                                 │
 ├────────────────────────────────────────────────────┤
-│ ✓ Reportes Professional v7.0          [Loaded]    │
+│ ✓ Reportesfessional v7.0          [Loaded]    │
 │   Type: Python                                     │
 │   Output: [View]  Errors: [None]                  │
 └────────────────────────────────────────────────────┘
@@ -285,7 +285,7 @@ En **Extender** → **Extensions**, deberías ver:
 
 #### 5.3. Prueba la extensión
 
-1. Click en la pestaña **"Reportes Pro"**
+1. Click en la pestaña **"Reportes"**
 2. Deberías ver la interfaz con:
    - Toolbar con botones (Nuevo, Guardar, Cargar, Exportar, etc.)
    - Tabla vacía con columnas (ID, Host, Path, Vulnerabilidad, etc.)
@@ -294,7 +294,7 @@ En **Extender** → **Extensions**, deberías ver:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ Reportes Pro                                             │
+│ Reportes                                                 │
 ├──────────────────────────────────────────────────────────┤
 │ [Nuevo] [Guardar] [Cargar] | [HTML] [JSON] [Faraday]... │
 │                                                          │
@@ -324,7 +324,7 @@ En **Extender** → **Extensions**, deberías ver:
 1. **Configurar Scope (Opcional pero recomendado)**
    - Ve a **Target** → **Scope**
    - Agrega la URL de tu aplicación objetivo
-   - En **Reportes Pro**, marca **"Solo Scope"**
+   - En **Reportes**, marca **"Solo Scope"**
 
 2. **Verificar Auto-save**
    - Checkbox **"Auto-save"** debe estar marcado ✓
@@ -345,7 +345,7 @@ La extensión detecta automáticamente mientras navegas:
 
 3. **Navega la aplicación web** objetivo en tu navegador
 
-4. **Ve a Reportes Pro** para ver hallazgos automáticos:
+4. **Ve a Reportes** para ver hallazgos automáticos:
    ```
    ✓ Headers de Seguridad Faltantes (Medium)
    ✓ Cookie Insegura (Medium)
@@ -381,7 +381,7 @@ La extensión detecta automáticamente mientras navegas:
 2. Escribe título rápido: `XSS en search`
 3. Click **OK**
 
-**Resultado:** El hallazgo aparece inmediatamente en la tabla de Reportes Pro.
+**Resultado:** El hallazgo aparece inmediatamente en la tabla de Reportes.
 
 ### Buscar y Filtrar
 
@@ -444,7 +444,7 @@ Categoria:  A03:2021 - Injection
 #### Faraday - Gestión de Vulnerabilidades
 
 ```bash
-# 1. En Reportes Pro: Click "Faraday" → Guardar
+# 1. En Reportes: Click "Faraday" → Guardar
 # 2. En terminal:
 
 faraday-cli auth -f http://faraday:5985 -u analyst -p pass
@@ -458,7 +458,7 @@ faraday-cli tool report pentest_xyz.json
 #### DefectDojo - Tracking
 
 ```
-1. En Reportes Pro: Click "DefectDojo" → Guardar
+1. En Reportes: Click "DefectDojo" → Guardar
 2. En DefectDojo Web UI:
    - Engagements → Import Scan Results
    - Scan Type: "Generic Findings Import"
@@ -580,7 +580,7 @@ Contenido:
 
 **Solución:**
 ```
-1. Extender → Options → Python Environment
+1. Extensions → Options → Python Environment
 2. Verificar ruta del JAR es correcta
 3. Re-seleccionar archivo jython-standalone-2.7.3.jar
 4. Reiniciar Burp Suite
@@ -637,15 +637,6 @@ en un request específico para capturar evidencias.
 
 ---
 
-## 🤝 Contribuir
-
-Las contribuciones son bienvenidas. Para contribuir:
-
-1. Fork el proyecto
-2. Crea tu feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push al branch (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
 
 ### Ideas para contribuir:
 
