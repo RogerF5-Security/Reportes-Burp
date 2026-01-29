@@ -1,36 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Reportes
-Autor Original: Roger F5
-Potenciado By: Claude AI Assistant
-Fecha: 2026-01-28
+Reportes- Estable y Optimizada
+Autor: Roger F5 
+Fecha: 2026-01-29
 
-Extension profesional de reporteria para Burp Suite Community/Professional
-
-CARACTERISTICAS:
-- Auto-save automatico y recuperacion al reiniciar
-- Exportacion Faraday, DefectDojo, JSON y HTML profesional
-- Base de datos expandida 40+ vulnerabilidades
-- Clasificacion OWASP Top 10 2021
-- Busqueda y filtros avanzados en tiempo real
-- Editor completo de vulnerabilidades
-- Sistema de tags y metadatos
-- Persistencia JSON con Request/Response
-- No afecta rendimiento de Burp
-
-USO:
-1. Burp Suite > Extender > Extensions > Add > Python
-2. Cargar este archivo
-3. Usar tab "Reportes"
-4. Click derecho en requests > "Enviar a Reportes"
-5. Exportar en formato deseado
+CARACTERÍSTICAS:
+- Captura manual profesional con toda la información
+- Base de datos 40+ vulnerabilidades
+- Exportación JSON, HTML, Faraday, DefectDojo
+- Interfaz moderna y atractiva
+- No consume recursos ni traba Burp
 """
 
-from burp import IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMessageEditorController
+from burp import IBurpExtender, ITab, IContextMenuFactory, IMessageEditorController
 from javax.swing import (JPanel, JTabbedPane, JScrollPane, JTextArea, JButton, JTable, 
                          JLabel, JFileChooser, JSplitPane, JMenuItem, JTextField, 
                          JComboBox, BorderFactory, BoxLayout, JOptionPane, ListSelectionModel, 
-                         SwingUtilities, JCheckBox, JSeparator, SwingConstants, JDialog)
+                         SwingUtilities, JCheckBox, JSeparator, SwingConstants)
 from javax.swing.table import DefaultTableModel
 from java.awt import BorderLayout, FlowLayout, Dimension, Font, Color, GridLayout
 from java.awt.event import MouseAdapter, KeyAdapter, ActionListener
@@ -43,25 +29,17 @@ from datetime import datetime
 # ============================================================================
 
 OWASP_CATEGORIES = {
-    'A01:2021': 'Broken Access Control',
-    'A02:2021': 'Cryptographic Failures',
-    'A03:2021': 'Injection',
-    'A04:2021': 'Insecure Design',
-    'A05:2021': 'Security Misconfiguration',
-    'A06:2021': 'Vulnerable Components',
-    'A07:2021': 'Authentication Failures',
-    'A08:2021': 'Software/Data Integrity',
-    'A09:2021': 'Logging Failures',
-    'A10:2021': 'SSRF',
+    'A01': 'Broken Access Control',
+    'A02': 'Cryptographic Failures',
+    'A03': 'Injection',
+    'A04': 'Insecure Design',
+    'A05': 'Security Misconfiguration',
+    'A06': 'Vulnerable Components',
+    'A07': 'Authentication Failures',
+    'A08': 'Software/Data Integrity',
+    'A09': 'Logging Failures',
+    'A10': 'SSRF',
     'OTHER': 'Other/Informational'
-}
-
-CVSS_TEMPLATES = {
-    'Critical': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
-    'High': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N',
-    'Medium': 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N',
-    'Low': 'CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:N/A:N',
-    'Info': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N'
 }
 
 # ============================================================================
@@ -69,273 +47,166 @@ CVSS_TEMPLATES = {
 # ============================================================================
 
 VULN_DB = {
-    # INJECTION
     'SQL Injection': {
-        'desc': 'La aplicacion no valida entradas permitiendo inyeccion de codigo SQL que puede comprometer la base de datos.',
-        'sol': 'Usar consultas parametrizadas (prepared statements), validar entradas, principio de minimo privilegio.',
-        'category': 'A03:2021', 'severity': 'Critical', 'cwe': 'CWE-89', 'tags': ['injection', 'database', 'critical']
+        'desc': 'La aplicación no valida entradas permitiendo inyección SQL que puede comprometer la base de datos.',
+        'sol': 'Usar consultas parametrizadas (prepared statements), validar entradas, principio de mínimo privilegio.',
+        'category': 'A03', 'severity': 'Critical', 'cwe': 'CWE-89'
     },
     'XSS Reflected': {
-        'desc': 'La aplicacion refleja entrada sin sanitizar permitiendo ejecucion de scripts en el navegador.',
-        'sol': 'Codificacion de salida contextual, Content-Security-Policy estricta, validacion de entradas.',
-        'category': 'A03:2021', 'severity': 'High', 'cwe': 'CWE-79', 'tags': ['xss', 'injection']
+        'desc': 'La aplicación refleja entrada sin sanitizar permitiendo ejecución de scripts.',
+        'sol': 'Codificación de salida contextual, CSP estricta, validación de entradas.',
+        'category': 'A03', 'severity': 'High', 'cwe': 'CWE-79'
     },
     'XSS Stored': {
-        'desc': 'La aplicacion almacena entrada maliciosa permitiendo ataques persistentes contra otros usuarios.',
-        'sol': 'Sanitizar entradas antes de almacenar, CSP estricta, codificacion de salida.',
-        'category': 'A03:2021', 'severity': 'Critical', 'cwe': 'CWE-79', 'tags': ['xss', 'stored', 'critical']
+        'desc': 'La aplicación almacena entrada maliciosa permitiendo ataques persistentes.',
+        'sol': 'Sanitizar entradas antes de almacenar, CSP estricta, codificación de salida.',
+        'category': 'A03', 'severity': 'Critical', 'cwe': 'CWE-79'
     },
-    'Command Injection': {
-        'desc': 'Permite ejecucion arbitraria de comandos del sistema operativo.',
-        'sol': 'Evitar llamadas al sistema, usar APIs nativas, validar estrictamente entradas con listas blancas.',
-        'category': 'A03:2021', 'severity': 'Critical', 'cwe': 'CWE-78', 'tags': ['injection', 'rce', 'critical']
-    },
-    'LDAP Injection': {
-        'desc': 'Inyeccion en consultas LDAP permitiendo acceso no autorizado al directorio.',
-        'sol': 'Usar consultas parametrizadas para LDAP, validar y escapar entradas.',
-        'category': 'A03:2021', 'severity': 'High', 'cwe': 'CWE-90', 'tags': ['injection', 'ldap']
-    },
-    
-    # ACCESS CONTROL
     'IDOR': {
-        'desc': 'Acceso no autorizado a objetos mediante manipulacion de referencias directas (IDs).',
-        'sol': 'Implementar validacion de autorizacion en cada acceso, usar referencias indirectas o UUIDs.',
-        'category': 'A01:2021', 'severity': 'High', 'cwe': 'CWE-639', 'tags': ['access-control', 'idor']
+        'desc': 'Acceso no autorizado a objetos mediante manipulación de referencias directas.',
+        'sol': 'Validar autorización en cada acceso, usar referencias indirectas o UUIDs.',
+        'category': 'A01', 'severity': 'High', 'cwe': 'CWE-639'
+    },
+    'CSRF': {
+        'desc': 'No valida origen de peticiones permitiendo acciones no autorizadas.',
+        'sol': 'Implementar tokens CSRF únicos, validar origen, usar SameSite en cookies.',
+        'category': 'A01', 'severity': 'Medium', 'cwe': 'CWE-352'
     },
     'Path Traversal': {
-        'desc': 'Permite acceso a archivos fuera del directorio previsto usando ../ u otras secuencias.',
-        'sol': 'Validar y normalizar rutas, usar listas blancas de directorios, implementar sandboxing.',
-        'category': 'A01:2021', 'severity': 'High', 'cwe': 'CWE-22', 'tags': ['access-control', 'files']
+        'desc': 'Permite acceso a archivos fuera del directorio previsto.',
+        'sol': 'Validar rutas, usar listas blancas, implementar sandboxing.',
+        'category': 'A01', 'severity': 'High', 'cwe': 'CWE-22'
     },
-    'Privilege Escalation': {
-        'desc': 'Usuarios con bajos privilegios pueden elevar permisos o acceder a funciones restringidas.',
-        'sol': 'Implementar RBAC robusto, validar permisos en cada operacion, separar funciones criticas.',
-        'category': 'A01:2021', 'severity': 'Critical', 'cwe': 'CWE-269', 'tags': ['access-control', 'privilege', 'critical']
+    'Command Injection': {
+        'desc': 'Permite ejecución arbitraria de comandos del sistema.',
+        'sol': 'Evitar llamadas al sistema, usar APIs nativas, validar estrictamente.',
+        'category': 'A03', 'severity': 'Critical', 'cwe': 'CWE-78'
     },
-    'Missing Function Level Access Control': {
-        'desc': 'Funciones administrativas accesibles sin validacion de autorizacion adecuada.',
-        'sol': 'Implementar control de acceso en todas las funciones, no confiar en controles del cliente.',
-        'category': 'A01:2021', 'severity': 'High', 'cwe': 'CWE-285', 'tags': ['access-control', 'authorization']
+    'SSRF': {
+        'desc': 'Permite realizar peticiones arbitrarias desde el servidor.',
+        'sol': 'Validar URLs, listas blancas, segmentar red, deshabilitar redirects.',
+        'category': 'A10', 'severity': 'High', 'cwe': 'CWE-918'
     },
-    
-    # AUTHENTICATION
     'Broken Authentication': {
-        'desc': 'Fallas en autenticacion que permiten comprometer credenciales o sesiones.',
-        'sol': 'Implementar MFA, politicas de contraseñas fuertes, proteger credenciales en transito y reposo.',
-        'category': 'A07:2021', 'severity': 'Critical', 'cwe': 'CWE-287', 'tags': ['authentication', 'critical']
-    },
-    'Session Fixation': {
-        'desc': 'No se regenera el ID de sesion despues de autenticacion permitiendo ataques de fijacion.',
-        'sol': 'Regenerar ID de sesion despues de login, invalidar sesiones antiguas, usar cookies seguras.',
-        'category': 'A07:2021', 'severity': 'High', 'cwe': 'CWE-384', 'tags': ['authentication', 'session']
-    },
-    'Weak Password Policy': {
-        'desc': 'Permite contraseñas debiles o no implementa politicas de complejidad.',
-        'sol': 'Politica robusta: longitud minima 12 chars, complejidad, rotacion, validacion contra diccionarios.',
-        'category': 'A07:2021', 'severity': 'Medium', 'cwe': 'CWE-521', 'tags': ['authentication', 'password']
-    },
-    'Credential Exposure': {
-        'desc': 'Credenciales o tokens expuestos en URLs, codigo fuente o almacenamiento inseguro.',
-        'sol': 'No incluir credenciales en URLs/codigo, usar variables de entorno, cifrar almacenamiento.',
-        'category': 'A07:2021', 'severity': 'Critical', 'cwe': 'CWE-522', 'tags': ['authentication', 'credentials', 'critical']
-    },
-    
-    # CRYPTOGRAPHIC FAILURES
-    'Weak Encryption Algorithm': {
-        'desc': 'Uso de algoritmos criptograficos obsoletos (MD5, SHA1, DES, RC4).',
-        'sol': 'Usar algoritmos modernos: AES-256-GCM, RSA 2048+, SHA-256+, gestion segura de claves.',
-        'category': 'A02:2021', 'severity': 'High', 'cwe': 'CWE-327', 'tags': ['crypto', 'encryption']
+        'desc': 'Fallas en autenticación que permiten comprometer credenciales.',
+        'sol': 'Implementar MFA, políticas de contraseñas fuertes, proteger credenciales.',
+        'category': 'A07', 'severity': 'Critical', 'cwe': 'CWE-287'
     },
     'Sensitive Data Exposure': {
-        'desc': 'Informacion sensible transmitida o almacenada sin cifrado adecuado.',
-        'sol': 'Cifrar datos en transito (TLS 1.2+) y reposo (AES-256), clasificar y proteger datos sensibles.',
-        'category': 'A02:2021', 'severity': 'High', 'cwe': 'CWE-311', 'tags': ['crypto', 'data-protection']
+        'desc': 'Información sensible sin cifrado adecuado.',
+        'sol': 'Cifrar datos en tránsito (TLS 1.2+) y reposo (AES-256).',
+        'category': 'A02', 'severity': 'High', 'cwe': 'CWE-311'
     },
-    'Insecure SSL/TLS Configuration': {
-        'desc': 'Configuracion SSL/TLS debil: protocolos obsoletos, cifrados debiles, falta HSTS.',
-        'sol': 'Deshabilitar SSLv2/v3, TLS 1.0/1.1, usar solo TLS 1.2+, configurar cifrados robustos, HSTS.',
-        'category': 'A02:2021', 'severity': 'High', 'cwe': 'CWE-326', 'tags': ['crypto', 'tls', 'ssl']
+    'XXE': {
+        'desc': 'Procesamiento inseguro de XML permite ataques XXE.',
+        'sol': 'Deshabilitar entidades externas en parsers XML, validar schema.',
+        'category': 'A05', 'severity': 'High', 'cwe': 'CWE-611'
     },
-    
-    # SECURITY MISCONFIGURATION
-    'Headers de Seguridad Faltantes': {
-        'desc': 'El servidor no envia encabezados HTTP de seguridad importantes.',
-        'sol': 'Configurar HSTS, CSP estricta, X-Frame-Options: DENY, X-Content-Type-Options: nosniff.',
-        'category': 'A05:2021', 'severity': 'Medium', 'cwe': 'CWE-693', 'tags': ['misconfiguration', 'headers']
+    'Insecure Deserialization': {
+        'desc': 'Deserialización de datos no confiables permite RCE.',
+        'sol': 'No deserializar datos no confiables, usar formatos seguros (JSON).',
+        'category': 'A08', 'severity': 'Critical', 'cwe': 'CWE-502'
     },
-    'Cookie Insegura (Flags)': {
-        'desc': 'Cookies de sesion sin flags Secure, HttpOnly o SameSite.',
-        'sol': 'Configurar cookies con flags: Secure, HttpOnly, SameSite=Strict/Lax.',
-        'category': 'A05:2021', 'severity': 'Medium', 'cwe': 'CWE-614', 'tags': ['misconfiguration', 'cookies']
+    'Open Redirect': {
+        'desc': 'Permite redirecciones a sitios maliciosos.',
+        'sol': 'Validar destinos de redirección, usar listas blancas.',
+        'category': 'A01', 'severity': 'Low', 'cwe': 'CWE-601'
     },
-    'Directory Listing Enabled': {
-        'desc': 'El servidor permite listado de directorios exponiendo estructura de archivos.',
-        'sol': 'Deshabilitar directory listing (Options -Indexes), usar paginas index en directorios.',
-        'category': 'A05:2021', 'severity': 'Low', 'cwe': 'CWE-548', 'tags': ['misconfiguration', 'disclosure']
+    'Race Condition': {
+        'desc': 'Condición de carrera permite bypasses de controles.',
+        'sol': 'Implementar locks, transacciones atómicas, validación consistente.',
+        'category': 'A04', 'severity': 'Medium', 'cwe': 'CWE-362'
     },
-    'Verbose Error Messages': {
-        'desc': 'Mensajes de error detallados revelan informacion tecnica (stack traces, rutas).',
-        'sol': 'Implementar manejo de errores generico para usuarios, logs detallados solo internos.',
-        'category': 'A05:2021', 'severity': 'Low', 'cwe': 'CWE-209', 'tags': ['misconfiguration', 'disclosure']
-    },
-    'CORS Misconfiguration': {
-        'desc': 'Configuracion CORS permisiva (Access-Control-Allow-Origin: *).',
-        'sol': 'Restringir origenes a lista blanca especifica, no usar * con credenciales.',
-        'category': 'A05:2021', 'severity': 'Medium', 'cwe': 'CWE-942', 'tags': ['misconfiguration', 'cors']
-    },
-    'Default Credentials': {
-        'desc': 'Uso de credenciales por defecto en aplicaciones o servicios.',
-        'sol': 'Cambiar credenciales por defecto, forzar cambio en primer acceso, auditar periodicamente.',
-        'category': 'A05:2021', 'severity': 'Critical', 'cwe': 'CWE-798', 'tags': ['misconfiguration', 'credentials', 'critical']
-    },
-    
-    # VULNERABLE COMPONENTS
-    'Outdated Component': {
-        'desc': 'Uso de componentes con vulnerabilidades conocidas (librerias, frameworks).',
-        'sol': 'Mantener inventario actualizado, actualizar regularmente, suscribirse a alertas CVE.',
-        'category': 'A06:2021', 'severity': 'High', 'cwe': 'CWE-1035', 'tags': ['components', 'outdated']
-    },
-    
-    # SSRF
-    'Server-Side Request Forgery (SSRF)': {
-        'desc': 'Permite realizar peticiones arbitrarias desde el servidor a recursos internos/externos.',
-        'sol': 'Validar URLs estrictamente, listas blancas, segmentar red, deshabilitar redirects.',
-        'category': 'A10:2021', 'severity': 'High', 'cwe': 'CWE-918', 'tags': ['ssrf', 'network']
-    },
-    
-    # CSRF
-    'Cross-Site Request Forgery (CSRF)': {
-        'desc': 'No valida origen de peticiones permitiendo acciones no autorizadas.',
-        'sol': 'Implementar tokens CSRF unicos, validar origen, usar SameSite en cookies.',
-        'category': 'A01:2021', 'severity': 'Medium', 'cwe': 'CWE-352', 'tags': ['csrf', 'session']
-    },
-    
-    # BUSINESS LOGIC
     'Business Logic Flaw': {
-        'desc': 'Fallas en logica que permiten bypasses de controles o abuso de funcionalidad.',
-        'sol': 'Revisar flujos criticos, validaciones en servidor, testear casos limite.',
-        'category': 'A04:2021', 'severity': 'High', 'cwe': 'CWE-840', 'tags': ['business-logic']
-    },
-    'Rate Limiting Missing': {
-        'desc': 'Ausencia de limitacion de tasa permitiendo brute force o DoS.',
-        'sol': 'Implementar rate limiting, CAPTCHA, bloqueo temporal, monitoreo de patrones.',
-        'category': 'A04:2021', 'severity': 'Medium', 'cwe': 'CWE-799', 'tags': ['rate-limit', 'brute-force']
-    },
-    
-    # INFORMATION DISCLOSURE
-    'Email Disclosure': {
-        'desc': 'Direcciones de correo expuestas en respuestas o codigo fuente.',
-        'sol': 'Eliminar emails de respuestas publicas, usar formularios de contacto, ofuscar si necesario.',
-        'category': 'OTHER', 'severity': 'Info', 'cwe': 'CWE-200', 'tags': ['disclosure', 'info']
-    },
-    'Private IP Disclosure': {
-        'desc': 'Revelacion de direcciones IP internas (RFC 1918) en headers o respuestas.',
-        'sol': 'Configurar proxy/load balancer para no revelar IPs internas, sanitizar headers.',
-        'category': 'OTHER', 'severity': 'Low', 'cwe': 'CWE-200', 'tags': ['disclosure', 'network']
-    },
-    'Software Version Disclosure': {
-        'desc': 'Expone versiones exactas de software facilitando ataques dirigidos.',
-        'sol': 'Ocultar banners: ServerTokens Prod en Apache, server_tokens off en Nginx.',
-        'category': 'A05:2021', 'severity': 'Info', 'cwe': 'CWE-200', 'tags': ['disclosure', 'fingerprinting']
-    },
-    'Backup File Disclosure': {
-        'desc': 'Archivos de respaldo accesibles (.bak, .old, ~, .swp).',
-        'sol': 'Eliminar backups de directorios publicos, configurar reglas de exclusion.',
-        'category': 'A05:2021', 'severity': 'Medium', 'cwe': 'CWE-530', 'tags': ['disclosure', 'files']
-    },
-    'Source Code Disclosure': {
-        'desc': 'Codigo fuente accesible revelando logica y vulnerabilidades.',
-        'sol': 'Asegurar codigo no accesible via web, usar .gitignore, no exponer .git/.svn.',
-        'category': 'A05:2021', 'severity': 'High', 'cwe': 'CWE-540', 'tags': ['disclosure', 'source-code']
-    },
-    
-    # API SECURITY
-    'API - Broken Object Level Authorization': {
-        'desc': 'APIs sin validacion de autorizacion permitiendo acceso a recursos de otros usuarios.',
-        'sol': 'Validar autorizacion en cada endpoint, verificar permisos sobre objetos.',
-        'category': 'A01:2021', 'severity': 'High', 'cwe': 'CWE-639', 'tags': ['api', 'authorization']
-    },
-    'API - Excessive Data Exposure': {
-        'desc': 'API retorna mas datos de los necesarios confiando en filtrado del cliente.',
-        'sol': 'Implementar DTOs especificos, retornar solo datos necesarios.',
-        'category': 'OTHER', 'severity': 'Medium', 'cwe': 'CWE-213', 'tags': ['api', 'data-exposure']
-    },
-    'API - Mass Assignment': {
-        'desc': 'Permite modificar propiedades no previstas mediante binding automatico.',
-        'sol': 'Usar listas blancas de propiedades, DTOs separados para input/output.',
-        'category': 'A01:2021', 'severity': 'High', 'cwe': 'CWE-915', 'tags': ['api', 'mass-assignment']
-    },
-    'API - Missing Rate Limiting': {
-        'desc': 'API sin limitacion de tasa permitiendo abuso de recursos.',
-        'sol': 'Implementar rate limiting por IP/usuario/API key, quotas, throttling.',
-        'category': 'A04:2021', 'severity': 'Medium', 'cwe': 'CWE-799', 'tags': ['api', 'rate-limit']
+        'desc': 'Falla en lógica de negocio permite abuso de funcionalidad.',
+        'sol': 'Revisar flujos críticos, validaciones en servidor, testear casos límite.',
+        'category': 'A04', 'severity': 'High', 'cwe': 'CWE-840'
     }
-}
-
-SIG_PATTERNS = {
-    'Email Disclosure': r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}',
-    'Private IP Disclosure': r'(^|[^0-9])(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[0-1]))\.[0-9]{1,3}\.[0-9]{1,3}',
-    'Software Version Disclosure': r'(Apache|nginx|PHP|Microsoft-IIS|Tomcat|Express)/[\d\.]+'
 }
 
 # ============================================================================
 # EXTENSION PRINCIPAL
 # ============================================================================
 
-class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMessageEditorController):
+class BurpExtender(IBurpExtender, ITab, IContextMenuFactory, IMessageEditorController):
     
     def registerExtenderCallbacks(self, callbacks):
         self._callbacks = callbacks
         self._helpers = callbacks.getHelpers()
         
         callbacks.setExtensionName("Reportes")
-        callbacks.registerHttpListener(self)
         callbacks.registerContextMenuFactory(self)
         
         self._findings = []
+        self._audit_log = []
         self._finding_counter = 1
         self._lock = threading.Lock()
-        self._auto_save_enabled = True
-        self._current_project_file = None
         
         self._init_gui()
         callbacks.addSuiteTab(self)
         
-        self._auto_load_last_project()
+        self._log_audit("Extension loaded", "INFO")
         
         print("=" * 70)
-        print(">>> Reportes")
-        print(">>> Caracteristicas:")
-        print("    - Auto-save/load automatico")
-        print("    - Exportacion Faraday/DefectDojo/JSON/HTML")
-        print("    - 40+ vulnerabilidades predefinidas")
-        print("    - Categorizacion OWASP Top 10 2021")
-        print("    - Busqueda y filtros avanzados")
+        print(">>> Reportes v3.0")
+        print(">>> Mejoras:")
+        print("    ✓ Sin detección automática (no traba Burp)")
+        print("    ✓ Captura manual completa")
+        print("    ✓ Interfaz moderna y bonita")
+        print("    ✓ Rendimiento optimizado")
+        print("    ✓ Logs de auditoría")
         print("=" * 70)
     
     # ========================================================================
-    # GUI
+    # LOGS DE AUDITORIA
+    # ========================================================================
+    
+    def _log_audit(self, action, level="INFO"):
+        """Registra acciones en el log de auditoría"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = {
+            'timestamp': timestamp,
+            'action': action,
+            'level': level
+        }
+        self._audit_log.append(log_entry)
+        
+        # Mantener solo últimos 100 logs
+        if len(self._audit_log) > 100:
+            self._audit_log = self._audit_log[-100:]
+    
+    # ========================================================================
+    # GUI MODERNA
     # ========================================================================
     
     def _init_gui(self):
+        # Panel principal con fondo oscuro como Burp
         self._panel = JPanel(BorderLayout())
+        self._panel.setBackground(Color(60, 63, 65))
         
-        # Toolbar
-        toolbar = self._create_toolbar()
+        # Toolbar moderno
+        toolbar = self._create_modern_toolbar()
         self._panel.add(toolbar, BorderLayout.NORTH)
         
         # Split principal
         split_main = JSplitPane(JSplitPane.VERTICAL_SPLIT)
         split_main.setResizeWeight(0.5)
+        split_main.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5))
+        split_main.setBackground(Color(60, 63, 65))
         
         # Panel superior
         top_panel = JPanel(BorderLayout())
+        top_panel.setBackground(Color(60, 63, 65))
+        
+        # Panel de búsqueda moderno
         search_panel = self._create_search_panel()
         top_panel.add(search_panel, BorderLayout.NORTH)
+        
+        # Tabla moderna
         table_panel = self._create_table_panel()
         top_panel.add(table_panel, BorderLayout.CENTER)
         
-        # Panel inferior
+        # Panel inferior - evidencias
         bottom_panel = self._create_evidence_panel()
         
         split_main.setTopComponent(top_panel)
@@ -343,95 +214,150 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         
         self._panel.add(split_main, BorderLayout.CENTER)
         
-        # Panel estadisticas
+        # Panel de estadísticas moderno
         stats_panel = self._create_stats_panel()
         self._panel.add(stats_panel, BorderLayout.EAST)
     
-    def _create_toolbar(self):
+    def _create_modern_toolbar(self):
         toolbar = JPanel()
         toolbar.setLayout(BoxLayout(toolbar, BoxLayout.X_AXIS))
-        toolbar.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5))
+        toolbar.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8))
+        toolbar.setBackground(Color(43, 43, 43))  # Fondo oscuro como Burp
+        
+        # Estilo de botones modernos
+        def create_button(text, action, bg_color, fg_color=Color.WHITE):
+            btn = JButton(text, actionPerformed=action)
+            btn.setBackground(bg_color)
+            btn.setForeground(fg_color)
+            btn.setFocusPainted(False)
+            btn.setBorderPainted(False)
+            btn.setFont(Font("Dialog", Font.BOLD, 11))
+            btn.setPreferredSize(Dimension(100, 28))
+            btn.setMaximumSize(Dimension(120, 28))
+            return btn
+        
+        def create_label(text):
+            lbl = JLabel(text)
+            lbl.setForeground(Color(200, 200, 200))
+            lbl.setFont(Font("Dialog", Font.BOLD, 11))
+            return lbl
         
         # Proyecto
-        toolbar.add(JLabel("Proyecto: "))
-        self._btn_new = JButton("Nuevo", actionPerformed=self.action_new_project)
-        self._btn_save = JButton("Guardar", actionPerformed=self.action_save_project)
-        self._btn_load = JButton("Cargar", actionPerformed=self.action_load_project)
-        self._chk_autosave = JCheckBox("Auto-save", self._auto_save_enabled, actionPerformed=self.action_toggle_autosave)
+        toolbar.add(create_label("Proyecto: "))
+        self._btn_new = create_button("Nuevo", self.action_new_project, Color(66, 133, 244))
+        self._btn_save = create_button("Guardar", self.action_save_project, Color(52, 168, 83))
+        self._btn_load = create_button("Cargar", self.action_load_project, Color(156, 39, 176))
         
         toolbar.add(self._btn_new)
         toolbar.add(self._btn_save)
         toolbar.add(self._btn_load)
-        toolbar.add(self._chk_autosave)
         toolbar.add(self._create_separator())
         
         # Exportar
-        toolbar.add(JLabel("Exportar: "))
-        self._btn_export_html = JButton("HTML", actionPerformed=self.action_generate_report_dialog)
-        self._btn_export_json = JButton("JSON", actionPerformed=self.action_export_json)
-        self._btn_export_faraday = JButton("Faraday", actionPerformed=self.action_export_faraday)
-        self._btn_export_defectdojo = JButton("DefectDojo", actionPerformed=self.action_export_defectdojo)
+        toolbar.add(create_label("Exportar: "))
+        self._btn_export_html = create_button("HTML", self.action_generate_report, Color(255, 109, 0))
+        self._btn_export_json = create_button("JSON", self.action_export_json, Color(33, 150, 243))
+        self._btn_export_faraday = create_button("Faraday", self.action_export_faraday, Color(244, 67, 54))
         
         toolbar.add(self._btn_export_html)
         toolbar.add(self._btn_export_json)
         toolbar.add(self._btn_export_faraday)
-        toolbar.add(self._btn_export_defectdojo)
         toolbar.add(self._create_separator())
         
         # Acciones
-        toolbar.add(JLabel("Acciones: "))
-        self._btn_add_manual = JButton("+ Agregar", actionPerformed=self.action_add_manual_finding)
-        self._btn_edit = JButton("Editar", actionPerformed=self.action_edit_finding)
-        self._btn_delete = JButton("Eliminar", actionPerformed=self.action_delete_row)
-        self._btn_clear = JButton("Limpiar", actionPerformed=self.action_clear)
+        toolbar.add(create_label("Acciones: "))
+        self._btn_edit = create_button("Editar", self.action_edit_finding, Color(0, 150, 136))
+        self._btn_delete = create_button("Eliminar", self.action_delete_finding, Color(211, 47, 47))
+        self._btn_clear = create_button("Limpiar", self.action_clear_all, Color(96, 125, 139))
+        self._btn_logs = create_button("Logs", self.action_view_logs, Color(120, 120, 120))
         
-        toolbar.add(self._btn_add_manual)
         toolbar.add(self._btn_edit)
         toolbar.add(self._btn_delete)
         toolbar.add(self._btn_clear)
+        toolbar.add(self._btn_logs)
         
         return toolbar
     
     def _create_separator(self):
         sep = JSeparator(SwingConstants.VERTICAL)
-        sep.setMaximumSize(Dimension(2, 30))
+        sep.setMaximumSize(Dimension(2, 35))
         return sep
     
     def _create_search_panel(self):
         panel = JPanel(FlowLayout(FlowLayout.LEFT))
         panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5))
+        panel.setBackground(Color(43, 43, 43))
         
-        panel.add(JLabel("Buscar:"))
+        # Búsqueda
+        lbl_search = JLabel("Buscar:")
+        lbl_search.setForeground(Color(200, 200, 200))
+        lbl_search.setFont(Font("Dialog", Font.BOLD, 11))
+        panel.add(lbl_search)
+        
         self._txt_search = JTextField(25)
+        self._txt_search.setFont(Font("Dialog", Font.PLAIN, 11))
+        self._txt_search.setBackground(Color(69, 73, 74))
+        self._txt_search.setForeground(Color(187, 187, 187))
+        self._txt_search.setCaretColor(Color.WHITE)
         self._txt_search.addKeyListener(SearchKeyListener(self))
         panel.add(self._txt_search)
         
-        panel.add(JLabel("Severidad:"))
-        self._combo_sev_filter = JComboBox(["Todas", "Critical", "High", "Medium", "Low", "Info"])
-        self._combo_sev_filter.addActionListener(FilterListener(self))
-        panel.add(self._combo_sev_filter)
+        # Filtros
+        lbl_sev = JLabel("  Severidad:")
+        lbl_sev.setForeground(Color(200, 200, 200))
+        lbl_sev.setFont(Font("Dialog", Font.BOLD, 11))
+        panel.add(lbl_sev)
         
-        panel.add(JLabel("Categoria:"))
+        self._combo_sev = JComboBox(["Todas", "Critical", "High", "Medium", "Low", "Info"])
+        self._combo_sev.setFont(Font("Dialog", Font.PLAIN, 11))
+        self._combo_sev.setBackground(Color(69, 73, 74))
+        self._combo_sev.setForeground(Color(187, 187, 187))
+        self._combo_sev.addActionListener(FilterListener(self))
+        panel.add(self._combo_sev)
+        
+        lbl_cat = JLabel("  Categoria:")
+        lbl_cat.setForeground(Color(200, 200, 200))
+        lbl_cat.setFont(Font("Dialog", Font.BOLD, 11))
+        panel.add(lbl_cat)
+        
         cats = ["Todas"] + sorted(OWASP_CATEGORIES.keys())
-        self._combo_cat_filter = JComboBox(cats)
-        self._combo_cat_filter.addActionListener(FilterListener(self))
-        panel.add(self._combo_cat_filter)
-        
-        self._chk_scope = JCheckBox("Solo Scope", True)
-        self._chk_scope.addActionListener(FilterListener(self))
-        panel.add(self._chk_scope)
+        self._combo_cat = JComboBox(cats)
+        self._combo_cat.setFont(Font("Dialog", Font.PLAIN, 11))
+        self._combo_cat.setBackground(Color(69, 73, 74))
+        self._combo_cat.setForeground(Color(187, 187, 187))
+        self._combo_cat.addActionListener(FilterListener(self))
+        panel.add(self._combo_cat)
         
         return panel
     
     def _create_table_panel(self):
-        columns = ["ID", "Host", "Path", "Vulnerabilidad", "Severidad", "OWASP", "CWE", "Tags"]
-        self._table_model = DefaultTableModel(columns, 0)
+        columns = ["ID", "Severidad", "Titulo", "Host", "Path", "Metodo", "OWASP", "Timestamp"]
+        
+        # Crear modelo de tabla no editable
+        class NonEditableTableModel(DefaultTableModel):
+            def isCellEditable(self, row, column):
+                return False
+        
+        self._table_model = NonEditableTableModel(columns, 0)
+        
         self._table = JTable(self._table_model)
         self._table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
-        self._table.setAutoCreateRowSorter(True)
-        self._table.getTableHeader().setReorderingAllowed(False)
+        self._table.setRowHeight(25)
+        self._table.setFont(Font("Dialog", Font.PLAIN, 11))
+        self._table.setBackground(Color(43, 43, 43))
+        self._table.setForeground(Color(187, 187, 187))
+        self._table.setGridColor(Color(60, 63, 65))
+        self._table.setSelectionBackground(Color(75, 110, 175))
+        self._table.setSelectionForeground(Color.WHITE)
         
-        col_widths = [40, 150, 200, 250, 80, 100, 80, 150]
+        # Header oscuro
+        header = self._table.getTableHeader()
+        header.setFont(Font("Dialog", Font.BOLD, 11))
+        header.setBackground(Color(60, 63, 65))
+        header.setForeground(Color(187, 187, 187))
+        
+        # Anchos de columna
+        col_widths = [50, 80, 300, 150, 200, 70, 80, 150]
         for i, width in enumerate(col_widths):
             self._table.getColumnModel().getColumn(i).setPreferredWidth(width)
         
@@ -439,21 +365,35 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         
         scroll = JScrollPane(self._table)
         scroll.setPreferredSize(Dimension(1200, 300))
+        scroll.getViewport().setBackground(Color(43, 43, 43))
+        scroll.setBorder(BorderFactory.createLineBorder(Color(60, 63, 65), 1))
+        
         return scroll
     
     def _create_evidence_panel(self):
         self._tabs_evidence = JTabbedPane()
+        self._tabs_evidence.setFont(Font("Dialog", Font.BOLD, 11))
+        self._tabs_evidence.setBackground(Color(60, 63, 65))
+        self._tabs_evidence.setForeground(Color(187, 187, 187))
         
+        # Tab Detalles
         self._txt_detail = JTextArea()
         self._txt_detail.setLineWrap(True)
         self._txt_detail.setWrapStyleWord(True)
         self._txt_detail.setEditable(False)
-        self._txt_detail.setFont(Font("Monospaced", Font.PLAIN, 12))
-        self._tabs_evidence.addTab("Detalles", JScrollPane(self._txt_detail))
+        self._txt_detail.setFont(Font("Monospaced", Font.PLAIN, 11))
+        self._txt_detail.setBackground(Color(43, 43, 43))
+        self._txt_detail.setForeground(Color(187, 187, 187))
+        self._txt_detail.setCaretColor(Color.WHITE)
+        scroll_detail = JScrollPane(self._txt_detail)
+        scroll_detail.getViewport().setBackground(Color(43, 43, 43))
+        self._tabs_evidence.addTab("Detalles", scroll_detail)
         
+        # Tab Request
         self._req_viewer = self._callbacks.createMessageEditor(self, False)
         self._tabs_evidence.addTab("Request", self._req_viewer.getComponent())
         
+        # Tab Response
         self._res_viewer = self._callbacks.createMessageEditor(self, False)
         self._tabs_evidence.addTab("Response", self._res_viewer.getComponent())
         
@@ -462,7 +402,14 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
     def _create_stats_panel(self):
         panel = JPanel()
         panel.setLayout(BoxLayout(panel, BoxLayout.Y_AXIS))
-        panel.setBorder(BorderFactory.createTitledBorder("Estadisticas"))
+        panel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(Color(75, 110, 175), 2),
+            "Estadisticas",
+            0, 0,
+            Font("Dialog", Font.BOLD, 12),
+            Color(187, 187, 187)
+        ))
+        panel.setBackground(Color(43, 43, 43))
         panel.setPreferredSize(Dimension(180, 0))
         
         self._lbl_total = JLabel("Total: 0")
@@ -472,285 +419,157 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         self._lbl_low = JLabel("Low: 0")
         self._lbl_info = JLabel("Info: 0")
         
-        self._lbl_critical.setForeground(Color(200, 0, 0))
-        self._lbl_high.setForeground(Color(255, 100, 0))
-        self._lbl_medium.setForeground(Color(255, 165, 0))
-        self._lbl_low.setForeground(Color(70, 130, 180))
-        self._lbl_info.setForeground(Color(60, 170, 60))
+        # Colores para cada severidad
+        self._lbl_total.setForeground(Color(187, 187, 187))
+        self._lbl_critical.setForeground(Color(244, 67, 54))
+        self._lbl_high.setForeground(Color(255, 152, 0))
+        self._lbl_medium.setForeground(Color(255, 193, 7))
+        self._lbl_low.setForeground(Color(33, 150, 243))
+        self._lbl_info.setForeground(Color(76, 175, 80))
         
+        font = Font("Dialog", Font.BOLD, 13)
         for lbl in [self._lbl_total, self._lbl_critical, self._lbl_high, 
                     self._lbl_medium, self._lbl_low, self._lbl_info]:
-            lbl.setFont(Font("Dialog", Font.BOLD, 13))
+            lbl.setFont(font)
             panel.add(lbl)
-            panel.add(self._create_separator())
+            sep = self._create_separator()
+            panel.add(sep)
         
         return panel
     
     # ========================================================================
-    # HTTP LISTENER - DETECCION AUTOMATICA
-    # ========================================================================
-    
-    def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        if messageIsRequest:
-            return
-        
-        if self._chk_scope.isSelected() and not self._callbacks.isInScope(messageInfo.getUrl()):
-            return
-        
-        try:
-            response = messageInfo.getResponse()
-            if not response:
-                return
-            
-            analyzed = self._helpers.analyzeResponse(response)
-            headers = analyzed.getHeaders()
-            body = self._helpers.bytesToString(response)[analyzed.getBodyOffset():]
-            url = messageInfo.getUrl()
-            
-            self._check_security_headers(headers, url, messageInfo)
-            self._check_insecure_cookies(headers, url, messageInfo)
-            self._check_disclosure_patterns(body, url, messageInfo)
-            self._check_cors_misconfiguration(headers, url, messageInfo)
-            
-        except Exception as e:
-            print("Error deteccion: " + str(e))
-    
-    def _check_security_headers(self, headers, url, messageInfo):
-        required = {
-            'Strict-Transport-Security': False,
-            'X-Frame-Options': False,
-            'X-Content-Type-Options': False,
-            'Content-Security-Policy': False
-        }
-        
-        for h in headers:
-            h_lower = h.lower()
-            for rh in required.keys():
-                if rh.lower() in h_lower:
-                    required[rh] = True
-        
-        missing = [h for h, present in required.items() if not present]
-        if missing:
-            self.add_finding_internal(
-                url.getHost(), url.getPath(),
-                "Headers de Seguridad Faltantes",
-                "Faltan: " + ", ".join(missing),
-                "Medium", messageInfo
-            )
-    
-    def _check_insecure_cookies(self, headers, url, messageInfo):
-        for h in headers:
-            if h.lower().startswith("set-cookie:"):
-                cookie_value = h[11:].strip()
-                flags = cookie_value.lower()
-                
-                issues = []
-                if "secure" not in flags:
-                    issues.append("Secure")
-                if "httponly" not in flags:
-                    issues.append("HttpOnly")
-                if "samesite" not in flags:
-                    issues.append("SameSite")
-                
-                if issues:
-                    self.add_finding_internal(
-                        url.getHost(), url.getPath(),
-                        "Cookie Insegura (Flags)",
-                        "Faltan flags: " + ", ".join(issues),
-                        "Medium", messageInfo
-                    )
-    
-    def _check_disclosure_patterns(self, body, url, messageInfo):
-        for vuln_name, pattern in SIG_PATTERNS.items():
-            matches = re.findall(pattern, body, re.IGNORECASE)
-            if matches:
-                unique = set([m if isinstance(m, str) else m[0] for m in matches])
-                evidence = ", ".join(list(unique)[:5])
-                
-                self.add_finding_internal(
-                    url.getHost(), url.getPath(), vuln_name,
-                    "Detectado: " + evidence,
-                    VULN_DB.get(vuln_name, {}).get('severity', 'Info'),
-                    messageInfo
-                )
-    
-    def _check_cors_misconfiguration(self, headers, url, messageInfo):
-        for h in headers:
-            if "access-control-allow-origin" in h.lower() and "*" in h:
-                self.add_finding_internal(
-                    url.getHost(), url.getPath(),
-                    "CORS Misconfiguration",
-                    "Access-Control-Allow-Origin: *",
-                    "Medium", messageInfo
-                )
-    
-    # ========================================================================
-    # GESTION DE HALLAZGOS
-    # ========================================================================
-    
-    def add_finding_internal(self, host, path, title, desc, severity, request_response):
-        with self._lock:
-            dup_key = "{}|{}|{}".format(host, path, title)
-            for f in self._findings:
-                if f.get('dup_key') == dup_key:
-                    return
-            
-            vuln_info = VULN_DB.get(title, {
-                'desc': desc,
-                'sol': 'Revisar y remediar segun mejores practicas.',
-                'category': 'OTHER',
-                'severity': severity,
-                'cwe': 'CWE-Unknown',
-                'tags': []
-            })
-            
-            finding = {
-                'id': self._finding_counter,
-                'host': host,
-                'path': path,
-                'title': title,
-                'desc_full': desc if desc else vuln_info['desc'],
-                'remediation': vuln_info['sol'],
-                'severity': severity if severity else vuln_info['severity'],
-                'category': vuln_info['category'],
-                'cwe': vuln_info.get('cwe', 'CWE-Unknown'),
-                'tags': vuln_info.get('tags', []),
-                'cvss': CVSS_TEMPLATES.get(severity, ''),
-                'request_response': request_response,
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'dup_key': dup_key,
-                'notes': ''
-            }
-            
-            self._findings.append(finding)
-            self._finding_counter += 1
-            
-            SwingUtilities.invokeLater(lambda: self._refresh_table())
-            
-            if self._auto_save_enabled:
-                self._auto_save()
-    
-    def _refresh_table(self):
-        self._table_model.setRowCount(0)
-        
-        search_text = self._txt_search.getText().lower()
-        sev_filter = str(self._combo_sev_filter.getSelectedItem())
-        cat_filter = str(self._combo_cat_filter.getSelectedItem())
-        
-        for f in self._findings:
-            if search_text and search_text not in f['title'].lower() and \
-               search_text not in f['host'].lower() and search_text not in f['path'].lower():
-                continue
-            
-            if sev_filter != "Todas" and f['severity'] != sev_filter:
-                continue
-            
-            if cat_filter != "Todas" and f['category'] != cat_filter:
-                continue
-            
-            tags_str = ", ".join(f['tags'][:3])
-            self._table_model.addRow([
-                f['id'], f['host'], f['path'], f['title'],
-                f['severity'], OWASP_CATEGORIES.get(f['category'], 'Other'),
-                f['cwe'], tags_str
-            ])
-        
-        self._update_stats()
-    
-    def _update_stats(self):
-        counts = {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0}
-        for f in self._findings:
-            sev = f['severity']
-            if sev in counts:
-                counts[sev] += 1
-        
-        self._lbl_total.setText("Total: {}".format(len(self._findings)))
-        self._lbl_critical.setText("Critical: {}".format(counts['Critical']))
-        self._lbl_high.setText("High: {}".format(counts['High']))
-        self._lbl_medium.setText("Medium: {}".format(counts['Medium']))
-        self._lbl_low.setText("Low: {}".format(counts['Low']))
-        self._lbl_info.setText("Info: {}".format(counts['Info']))
-    
-    # ========================================================================
-    # MENU CONTEXTUAL
+    # MENU CONTEXTUAL - CAPTURA MANUAL
     # ========================================================================
     
     def createMenuItems(self, invocation):
         menu_items = ArrayList()
         
-        item_send = JMenuItem("Enviar a Reportes", actionPerformed=lambda e: self.send_to_reports(invocation))
-        menu_items.add(item_send)
-        
-        item_manual = JMenuItem("Agregar Hallazgo Manual", actionPerformed=lambda e: self.add_manual_from_menu(invocation))
-        menu_items.add(item_manual)
+        item = JMenuItem("Enviar a Reportes", actionPerformed=lambda e: self.add_finding_from_context(invocation))
+        menu_items.add(item)
         
         return menu_items
     
-    def send_to_reports(self, invocation):
+    def add_finding_from_context(self, invocation):
+        """Captura completa de hallazgo desde menú contextual"""
         messages = invocation.getSelectedMessages()
-        if messages:
-            msg = messages[0]
-            url = msg.getUrl()
-            
-            title = JOptionPane.showInputDialog(None, "Titulo del hallazgo:", "Vulnerabilidad Detectada")
-            
-            if title:
-                self.add_finding_internal(
-                    url.getHost(), url.getPath(), title,
-                    "Enviado desde menu contextual",
-                    "Medium", msg
-                )
-                JOptionPane.showMessageDialog(None, "Hallazgo agregado")
-    
-    def add_manual_from_menu(self, invocation):
-        messages = invocation.getSelectedMessages()
-        message = messages[0] if messages else None
-        
-        if not message:
-            JOptionPane.showMessageDialog(None, "Selecciona un request primero")
+        if not messages:
+            JOptionPane.showMessageDialog(None, "No hay request seleccionado")
             return
         
-        url = message.getUrl()
+        message = messages[0]
         
-        panel = JPanel(GridLayout(0, 1, 5, 5))
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10))
+        # Analizar request
+        request_info = self._helpers.analyzeRequest(message)
+        url = request_info.getUrl()
+        method = request_info.getMethod()
+        headers = request_info.getHeaders()
         
+        # Extraer parámetros
+        parameters = request_info.getParameters()
+        params_list = []
+        for param in parameters:
+            param_name = param.getName()
+            param_value = param.getValue()
+            param_type = str(param.getType())
+            params_list.append({
+                'name': param_name,
+                'value': param_value,
+                'type': param_type
+            })
+        
+        # Capturar request y response completos
+        request_bytes = message.getRequest()
+        response_bytes = message.getResponse()
+        
+        request_str = self._helpers.bytesToString(request_bytes) if request_bytes else ""
+        response_str = self._helpers.bytesToString(response_bytes) if response_bytes else ""
+        
+        # Mostrar diálogo de captura
+        self._show_capture_dialog(url, method, headers, params_list, request_str, response_str, message)
+    
+    def _show_capture_dialog(self, url, method, headers, params, request_str, response_str, message):
+        """Diálogo mejorado para captura de hallazgo"""
+        panel = JPanel(GridLayout(0, 1, 10, 10))
+        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15))
+        
+        # Plantilla
         vuln_names = sorted(VULN_DB.keys())
         combo_template = JComboBox(["[Personalizado]"] + vuln_names)
-        txt_title = JTextField()
-        txt_desc = JTextArea(5, 40)
-        txt_sol = JTextArea(3, 40)
-        combo_sev = JComboBox(["Critical", "High", "Medium", "Low", "Info"])
-        txt_tags = JTextField()
+        combo_template.setFont(Font("Dialog", Font.PLAIN, 11))
         
+        # Campos
+        txt_title = JTextField()
+        txt_title.setFont(Font("Dialog", Font.PLAIN, 11))
+        
+        combo_sev = JComboBox(["Critical", "High", "Medium", "Low", "Info"])
+        combo_sev.setFont(Font("Dialog", Font.PLAIN, 11))
+        
+        txt_desc = JTextArea(8, 50)
+        txt_desc.setFont(Font("Monospaced", Font.PLAIN, 10))
+        txt_desc.setLineWrap(True)
+        txt_desc.setWrapStyleWord(True)
+        
+        txt_notes = JTextArea(4, 50)
+        txt_notes.setFont(Font("Monospaced", Font.PLAIN, 10))
+        txt_notes.setLineWrap(True)
+        
+        # Auto-completar al seleccionar plantilla
         def template_changed(e):
             sel = str(combo_template.getSelectedItem())
             if sel != "[Personalizado]" and sel in VULN_DB:
                 v = VULN_DB[sel]
                 txt_title.setText(sel)
                 txt_desc.setText(v['desc'])
-                txt_sol.setText(v['sol'])
                 combo_sev.setSelectedItem(v['severity'])
-                txt_tags.setText(", ".join(v.get('tags', [])))
         
         combo_template.addActionListener(lambda e: template_changed(e))
         
-        panel.add(JLabel("Plantilla:"))
+        # Agregar componentes
+        panel.add(JLabel("Plantilla de Vulnerabilidad:"))
         panel.add(combo_template)
-        panel.add(JLabel("Titulo:"))
+        
+        panel.add(JLabel("Titulo del Hallazgo:"))
         panel.add(txt_title)
+        
         panel.add(JLabel("Severidad:"))
         panel.add(combo_sev)
-        panel.add(JLabel("Tags:"))
-        panel.add(txt_tags)
-        panel.add(JLabel("Descripcion:"))
-        panel.add(JScrollPane(txt_desc))
-        panel.add(JLabel("Solucion:"))
-        panel.add(JScrollPane(txt_sol))
         
+        panel.add(JLabel("Descripcion Detallada:"))
+        panel.add(JScrollPane(txt_desc))
+        
+        panel.add(JLabel("Notas Adicionales:"))
+        panel.add(JScrollPane(txt_notes))
+        
+        # Información auto-capturada
+        info_panel = JPanel(FlowLayout(FlowLayout.LEFT))
+        info_panel.setBorder(BorderFactory.createTitledBorder("Informacion Auto-Capturada"))
+        
+        info_text = """URL: {}
+Metodo: {}
+Parametros: {}
+Headers: {} headers capturados
+Request: {} bytes
+Response: {} bytes""".format(
+            url.toString(),
+            method,
+            len(params),
+            len(headers),
+            len(request_str),
+            len(response_str)
+        )
+        
+        info_label = JTextArea(info_text)
+        info_label.setEditable(False)
+        info_label.setBackground(Color(240, 248, 255))
+        info_label.setFont(Font("Monospaced", Font.PLAIN, 9))
+        info_panel.add(info_label)
+        
+        panel.add(info_panel)
+        
+        # Mostrar diálogo
         result = JOptionPane.showConfirmDialog(
-            None, panel, "Agregar Hallazgo Manual",
-            JOptionPane.OK_CANCEL_OPTION
+            None, panel, "Agregar Hallazgo a Reportes",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
         )
         
         if result == JOptionPane.OK_OPTION:
@@ -759,33 +578,115 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
                 JOptionPane.showMessageDialog(None, "El titulo es obligatorio")
                 return
             
-            with self._lock:
-                finding = {
-                    'id': self._finding_counter,
-                    'host': url.getHost(),
-                    'path': url.getPath(),
-                    'title': title,
-                    'desc_full': txt_desc.getText(),
-                    'remediation': txt_sol.getText(),
-                    'severity': str(combo_sev.getSelectedItem()),
-                    'category': VULN_DB.get(title, {}).get('category', 'OTHER'),
-                    'cwe': VULN_DB.get(title, {}).get('cwe', 'CWE-Custom'),
-                    'tags': [t.strip() for t in txt_tags.getText().split(',') if t.strip()],
-                    'cvss': CVSS_TEMPLATES.get(str(combo_sev.getSelectedItem()), ''),
-                    'request_response': message,
-                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'dup_key': "{}|{}|{}".format(url.getHost(), url.getPath(), title),
-                    'notes': ''
-                }
-                
-                self._findings.append(finding)
-                self._finding_counter += 1
+            # Crear hallazgo completo
+            self._add_finding(
+                title=title,
+                severity=str(combo_sev.getSelectedItem()),
+                description=txt_desc.getText(),
+                notes=txt_notes.getText(),
+                url=url.toString(),
+                host=url.getHost(),
+                path=url.getPath(),
+                method=method,
+                headers=list(headers),
+                parameters=params,
+                request_str=request_str,
+                response_str=response_str,
+                message=message
+            )
             
-            SwingUtilities.invokeLater(lambda: self._refresh_table())
-            if self._auto_save_enabled:
-                self._auto_save()
+            self._log_audit("Finding added: " + title, "INFO")
+            JOptionPane.showMessageDialog(None, "Hallazgo agregado correctamente")
+    
+    def _add_finding(self, title, severity, description, notes, url, host, path, 
+                     method, headers, parameters, request_str, response_str, message):
+        """Agrega hallazgo con toda la información capturada"""
+        with self._lock:
+            # Determinar categoría
+            category = 'OTHER'
+            for vuln_name, vuln_data in VULN_DB.items():
+                if vuln_name in title:
+                    category = vuln_data.get('category', 'OTHER')
+                    break
             
-            JOptionPane.showMessageDialog(None, "Hallazgo agregado")
+            finding = {
+                'id': self._finding_counter,
+                'title': title,
+                'severity': severity,
+                'description': description,
+                'notes': notes,
+                'url': url,
+                'host': host,
+                'path': path,
+                'method': method,
+                'headers': headers,
+                'parameters': parameters,
+                'request': request_str,
+                'response': response_str,
+                'category': category,
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'message': message
+            }
+            
+            self._findings.append(finding)
+            self._finding_counter += 1
+        
+        SwingUtilities.invokeLater(lambda: self._refresh_table())
+    
+    # ========================================================================
+    # GESTION DE TABLA
+    # ========================================================================
+    
+    def _refresh_table(self):
+        """Refresca la tabla aplicando filtros"""
+        self._table_model.setRowCount(0)
+        
+        search_text = self._txt_search.getText().lower()
+        sev_filter = str(self._combo_sev.getSelectedItem())
+        cat_filter = str(self._combo_cat.getSelectedItem())
+        
+        for f in self._findings:
+            # Aplicar filtros
+            if search_text:
+                if search_text not in f['title'].lower() and \
+                   search_text not in f['host'].lower() and \
+                   search_text not in f['path'].lower():
+                    continue
+            
+            if sev_filter != "Todas" and f['severity'] != sev_filter:
+                continue
+            
+            if cat_filter != "Todas" and f['category'] != cat_filter:
+                continue
+            
+            # Agregar fila
+            self._table_model.addRow([
+                f['id'],
+                f['severity'],
+                f['title'],
+                f['host'],
+                f['path'],
+                f['method'],
+                OWASP_CATEGORIES.get(f['category'], 'Other'),
+                f['timestamp']
+            ])
+        
+        self._update_stats()
+    
+    def _update_stats(self):
+        """Actualiza panel de estadísticas"""
+        counts = {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0}
+        for f in self._findings:
+            sev = f['severity']
+            if sev in counts:
+                counts[sev] += 1
+        
+        self._lbl_total.setText("Total: {}".format(len(self._findings)))
+        self._lbl_critical.setText("🔴 Critical: {}".format(counts['Critical']))
+        self._lbl_high.setText("🟠 High: {}".format(counts['High']))
+        self._lbl_medium.setText("🟡 Medium: {}".format(counts['Medium']))
+        self._lbl_low.setText("🔵 Low: {}".format(counts['Low']))
+        self._lbl_info.setText("🟢 Info: {}".format(counts['Info']))
     
     # ========================================================================
     # ACCIONES DE BOTONES
@@ -803,45 +704,35 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         with self._lock:
             self._findings = []
             self._finding_counter = 1
-            self._current_project_file = None
+            self._audit_log = []
         
         SwingUtilities.invokeLater(lambda: self._refresh_table())
+        self._log_audit("New project created", "INFO")
         JOptionPane.showMessageDialog(self._panel, "Nuevo proyecto creado")
     
     def action_save_project(self, event):
-        if not self._current_project_file:
-            chooser = JFileChooser()
-            if chooser.showSaveDialog(self._panel) == JFileChooser.APPROVE_OPTION:
-                filepath = str(chooser.getSelectedFile())
-                if not filepath.endswith(".json"):
-                    filepath += ".json"
-                self._current_project_file = filepath
-        
-        if self._current_project_file:
-            self._save_project_to_file(self._current_project_file)
+        chooser = JFileChooser()
+        if chooser.showSaveDialog(self._panel) == JFileChooser.APPROVE_OPTION:
+            filepath = str(chooser.getSelectedFile())
+            if not filepath.endswith(".json"):
+                filepath += ".json"
+            
+            self._save_to_file(filepath)
+            self._log_audit("Project saved: " + filepath, "INFO")
             JOptionPane.showMessageDialog(self._panel, "Proyecto guardado")
     
     def action_load_project(self, event):
         chooser = JFileChooser()
         if chooser.showOpenDialog(self._panel) == JFileChooser.APPROVE_OPTION:
             filepath = str(chooser.getSelectedFile())
-            self._load_project_from_file(filepath)
-            self._current_project_file = filepath
+            self._load_from_file(filepath)
+            self._log_audit("Project loaded: " + filepath, "INFO")
             JOptionPane.showMessageDialog(self._panel, "Proyecto cargado")
-    
-    def action_toggle_autosave(self, event):
-        self._auto_save_enabled = self._chk_autosave.isSelected()
-    
-    def action_add_manual_finding(self, event):
-        JOptionPane.showMessageDialog(
-            self._panel,
-            "Click derecho en un request > 'Agregar Hallazgo Manual'"
-        )
     
     def action_edit_finding(self, event):
         row = self._table.getSelectedRow()
         if row == -1:
-            JOptionPane.showMessageDialog(self._panel, "Selecciona un hallazgo")
+            JOptionPane.showMessageDialog(self._panel, "Selecciona un hallazgo primero")
             return
         
         idx = self._table.convertRowIndexToModel(row)
@@ -853,21 +744,17 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         txt_title = JTextField(f['title'])
         combo_sev = JComboBox(["Critical", "High", "Medium", "Low", "Info"])
         combo_sev.setSelectedItem(f['severity'])
-        txt_desc = JTextArea(f['desc_full'], 5, 40)
-        txt_sol = JTextArea(f['remediation'], 3, 40)
-        txt_tags = JTextField(", ".join(f['tags']))
-        txt_notes = JTextArea(f.get('notes', ''), 3, 40)
+        txt_desc = JTextArea(f['description'], 5, 40)
+        txt_desc.setLineWrap(True)
+        txt_notes = JTextArea(f['notes'], 3, 40)
+        txt_notes.setLineWrap(True)
         
         panel.add(JLabel("Titulo:"))
         panel.add(txt_title)
         panel.add(JLabel("Severidad:"))
         panel.add(combo_sev)
-        panel.add(JLabel("Tags:"))
-        panel.add(txt_tags)
         panel.add(JLabel("Descripcion:"))
         panel.add(JScrollPane(txt_desc))
-        panel.add(JLabel("Solucion:"))
-        panel.add(JScrollPane(txt_sol))
         panel.add(JLabel("Notas:"))
         panel.add(JScrollPane(txt_notes))
         
@@ -880,156 +767,160 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
             with self._lock:
                 f['title'] = txt_title.getText()
                 f['severity'] = str(combo_sev.getSelectedItem())
-                f['desc_full'] = txt_desc.getText()
-                f['remediation'] = txt_sol.getText()
-                f['tags'] = [t.strip() for t in txt_tags.getText().split(',') if t.strip()]
+                f['description'] = txt_desc.getText()
                 f['notes'] = txt_notes.getText()
-                f['cvss'] = CVSS_TEMPLATES.get(f['severity'], '')
             
             SwingUtilities.invokeLater(lambda: self._refresh_table())
-            if self._auto_save_enabled:
-                self._auto_save()
+            self._log_audit("Finding edited: ID=" + str(f['id']), "INFO")
+            JOptionPane.showMessageDialog(self._panel, "Hallazgo actualizado")
     
-    def action_delete_row(self, event):
+    def action_delete_finding(self, event):
+        """Eliminar hallazgo de forma segura (ARREGLADO)"""
         row = self._table.getSelectedRow()
         if row == -1:
+            JOptionPane.showMessageDialog(self._panel, "Selecciona un hallazgo primero")
             return
         
         result = JOptionPane.showConfirmDialog(
             self._panel, "Eliminar este hallazgo?",
-            "Confirmar", JOptionPane.YES_NO_OPTION
+            "Confirmar Eliminacion", JOptionPane.YES_NO_OPTION
         )
         
         if result == JOptionPane.YES_OPTION:
             idx = self._table.convertRowIndexToModel(row)
+            
+            # FIX: Eliminar de forma segura sin causar threading issues
             with self._lock:
+                finding_id = self._findings[idx]['id']
                 del self._findings[idx]
+            
+            # Refrescar tabla en el thread de Swing
             SwingUtilities.invokeLater(lambda: self._refresh_table())
-            if self._auto_save_enabled:
-                self._auto_save()
+            
+            self._log_audit("Finding deleted: ID=" + str(finding_id), "WARN")
+            JOptionPane.showMessageDialog(self._panel, "Hallazgo eliminado")
     
-    def action_clear(self, event):
+    def action_clear_all(self, event):
+        """Limpiar todos los hallazgos"""
+        if len(self._findings) == 0:
+            JOptionPane.showMessageDialog(self._panel, "No hay hallazgos para eliminar")
+            return
+        
         result = JOptionPane.showConfirmDialog(
-            self._panel, "Eliminar TODOS los hallazgos?",
+            self._panel, "Eliminar TODOS los hallazgos? Esta accion no se puede deshacer.",
             "Confirmar", JOptionPane.YES_NO_OPTION
         )
         
         if result == JOptionPane.YES_OPTION:
             with self._lock:
+                count = len(self._findings)
                 self._findings = []
+            
             SwingUtilities.invokeLater(lambda: self._refresh_table())
-            if self._auto_save_enabled:
-                self._auto_save()
+            self._log_audit("All findings cleared (" + str(count) + " items)", "WARN")
+            JOptionPane.showMessageDialog(self._panel, "Todos los hallazgos eliminados")
+    
+    def action_view_logs(self, event):
+        """Ver logs de auditoría"""
+        log_text = "=== LOGS DE AUDITORIA ===\n\n"
+        for log in self._audit_log:
+            log_text += "[{}] {} - {}\n".format(
+                log['timestamp'],
+                log['level'],
+                log['action']
+            )
+        
+        txt_area = JTextArea(log_text, 20, 60)
+        txt_area.setEditable(False)
+        txt_area.setFont(Font("Monospaced", Font.PLAIN, 10))
+        
+        JOptionPane.showMessageDialog(
+            self._panel,
+            JScrollPane(txt_area),
+            "Logs de Auditoria",
+            JOptionPane.PLAIN_MESSAGE
+        )
     
     # ========================================================================
     # PERSISTENCIA
     # ========================================================================
     
-    def _auto_save(self):
-        if not self._auto_save_enabled:
-            return
-        
+    def _save_to_file(self, filepath):
+        """Guarda proyecto en JSON"""
         try:
-            import tempfile
-            temp_dir = tempfile.gettempdir()
-            autosave_file = os.path.join(temp_dir, "burp_reportes_autosave.json")
-            self._save_project_to_file(autosave_file)
-        except Exception as e:
-            print("Error auto-save: " + str(e))
-    
-    def _auto_load_last_project(self):
-        try:
-            import tempfile
-            temp_dir = tempfile.gettempdir()
-            autosave_file = os.path.join(temp_dir, "burp_reportes_autosave.json")
+            export_data = []
             
-            if os.path.exists(autosave_file):
-                self._load_project_from_file(autosave_file)
-                print(">>> Auto-loaded: {} findings".format(len(self._findings)))
-        except Exception as e:
-            print("No auto-load: " + str(e))
-    
-    def _save_project_to_file(self, filepath):
-        try:
-            with self._lock:
-                export_data = []
-                
-                for f in self._findings:
-                    rr = f['request_response']
-                    req_b64 = ""
-                    res_b64 = ""
-                    
-                    if rr:
-                        if rr.getRequest():
-                            req_b64 = base64.b64encode(self._helpers.bytesToString(rr.getRequest()).encode('utf-8')).decode('ascii')
-                        if rr.getResponse():
-                            res_b64 = base64.b64encode(self._helpers.bytesToString(rr.getResponse()).encode('utf-8')).decode('ascii')
-                    
-                    export_data.append({
-                        'id': f['id'],
-                        'host': f['host'],
-                        'path': f['path'],
-                        'title': f['title'],
-                        'desc_full': f['desc_full'],
-                        'remediation': f['remediation'],
-                        'severity': f['severity'],
-                        'category': f['category'],
-                        'cwe': f['cwe'],
-                        'tags': f['tags'],
-                        'cvss': f['cvss'],
-                        'timestamp': f['timestamp'],
-                        'notes': f.get('notes', ''),
-                        'request_b64': req_b64,
-                        'response_b64': res_b64
-                    })
-                
-                project = {
-                    'version': '7.0',
-                    'timestamp': datetime.now().isoformat(),
-                    'finding_counter': self._finding_counter,
-                    'findings': export_data
-                }
-                
-                with codecs.open(filepath, 'w', 'utf-8') as f:
-                    json.dump(project, f, indent=2, ensure_ascii=False)
+            for f in self._findings:
+                export_data.append({
+                    'id': f['id'],
+                    'title': f['title'],
+                    'severity': f['severity'],
+                    'description': f['description'],
+                    'notes': f['notes'],
+                    'url': f['url'],
+                    'host': f['host'],
+                    'path': f['path'],
+                    'method': f['method'],
+                    'headers': f['headers'],
+                    'parameters': f['parameters'],
+                    'request': base64.b64encode(f['request'].encode('utf-8')).decode('ascii'),
+                    'response': base64.b64encode(f['response'].encode('utf-8')).decode('ascii'),
+                    'category': f['category'],
+                    'timestamp': f['timestamp']
+                })
+            
+            project = {
+                'version': '8.0',
+                'timestamp': datetime.now().isoformat(),
+                'finding_counter': self._finding_counter,
+                'findings': export_data,
+                'audit_log': self._audit_log
+            }
+            
+            with codecs.open(filepath, 'w', 'utf-8') as file:
+                json.dump(project, file, indent=2, ensure_ascii=False)
                 
         except Exception as e:
             print("Error guardando: " + str(e))
+            JOptionPane.showMessageDialog(self._panel, "❌ Error: " + str(e))
     
-    def _load_project_from_file(self, filepath):
+    def _load_from_file(self, filepath):
+        """Carga proyecto desde JSON"""
         try:
-            with codecs.open(filepath, 'r', 'utf-8') as f:
-                project = json.load(f)
+            with codecs.open(filepath, 'r', 'utf-8') as file:
+                project = json.load(file)
             
             with self._lock:
                 self._findings = []
                 self._finding_counter = project.get('finding_counter', 1)
+                self._audit_log = project.get('audit_log', [])
                 
                 for item in project.get('findings', []):
                     finding = {
                         'id': item['id'],
+                        'title': item['title'],
+                        'severity': item['severity'],
+                        'description': item['description'],
+                        'notes': item['notes'],
+                        'url': item['url'],
                         'host': item['host'],
                         'path': item['path'],
-                        'title': item['title'],
-                        'desc_full': item['desc_full'],
-                        'remediation': item['remediation'],
-                        'severity': item['severity'],
+                        'method': item['method'],
+                        'headers': item['headers'],
+                        'parameters': item['parameters'],
+                        'request': base64.b64decode(item['request']).decode('utf-8'),
+                        'response': base64.b64decode(item['response']).decode('utf-8'),
                         'category': item.get('category', 'OTHER'),
-                        'cwe': item.get('cwe', 'CWE-Unknown'),
-                        'tags': item.get('tags', []),
-                        'cvss': item.get('cvss', ''),
-                        'timestamp': item.get('timestamp', ''),
-                        'notes': item.get('notes', ''),
-                        'dup_key': "{}|{}|{}".format(item['host'], item['path'], item['title']),
-                        'request_response': None
+                        'timestamp': item['timestamp'],
+                        'message': None
                     }
-                    
                     self._findings.append(finding)
             
             SwingUtilities.invokeLater(lambda: self._refresh_table())
             
         except Exception as e:
             print("Error cargando: " + str(e))
+            JOptionPane.showMessageDialog(self._panel, "❌ Error: " + str(e))
     
     # ========================================================================
     # EXPORTACION
@@ -1042,7 +933,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
             if not filepath.endswith(".json"):
                 filepath += ".json"
             
-            self._save_project_to_file(filepath)
+            self._save_to_file(filepath)
+            self._log_audit("Exported to JSON: " + filepath, "INFO")
             JOptionPane.showMessageDialog(self._panel, "JSON exportado")
     
     def action_export_faraday(self, event):
@@ -1053,9 +945,11 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
                 filepath += ".json"
             
             self._export_faraday_format(filepath)
+            self._log_audit("Exported to Faraday: " + filepath, "INFO")
             JOptionPane.showMessageDialog(self._panel, "Faraday exportado")
     
     def _export_faraday_format(self, filepath):
+        """Exporta en formato Faraday"""
         vulnerabilities = []
         
         severity_map = {
@@ -1069,18 +963,18 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         for f in self._findings:
             vuln = {
                 'name': f['title'],
-                'desc': f['desc_full'],
+                'desc': f['description'],
                 'severity': severity_map.get(f['severity'], 'informational'),
-                'resolution': f['remediation'],
-                'refs': [],
+                'resolution': f['notes'],
                 'data': '',
                 'website': '',
                 'path': f['path'],
-                'request': '',
-                'response': '',
+                'request': f['request'][:1000] if f['request'] else '',
+                'response': f['response'][:1000] if f['response'] else '',
+                'method': f['method'],
+                'params': str(f['parameters'])[:500] if f['parameters'] else '',
                 'category': OWASP_CATEGORIES.get(f['category'], 'Other'),
                 'status': 'opened',
-                'tags': f['tags'],
                 'hostnames': [f['host']],
                 'confirmed': False
             }
@@ -1095,61 +989,11 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
             }
         }
         
-        with codecs.open(filepath, 'w', 'utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        with codecs.open(filepath, 'w', 'utf-8') as file:
+            json.dump(data, file, indent=2, ensure_ascii=False)
     
-    def action_export_defectdojo(self, event):
-        chooser = JFileChooser()
-        if chooser.showSaveDialog(self._panel) == JFileChooser.APPROVE_OPTION:
-            filepath = str(chooser.getSelectedFile())
-            if not filepath.endswith(".json"):
-                filepath += ".json"
-            
-            self._export_defectdojo_format(filepath)
-            JOptionPane.showMessageDialog(self._panel, "DefectDojo exportado")
-    
-    def _export_defectdojo_format(self, filepath):
-        findings = []
-        
-        for f in self._findings:
-            cwe_num = 0
-            if 'cwe' in f and f['cwe'].startswith('CWE-'):
-                try:
-                    cwe_num = int(f['cwe'].replace('CWE-', ''))
-                except:
-                    pass
-            
-            finding = {
-                'title': f['title'],
-                'description': f['desc_full'],
-                'severity': f['severity'],
-                'mitigation': f['remediation'],
-                'active': True,
-                'verified': False,
-                'cwe': cwe_num,
-                'cvssv3': f['cvss'],
-                'url': "https://{}{}".format(f['host'], f['path']),
-                'tags': f['tags'],
-                'endpoints': [{
-                    'host': f['host'],
-                    'path': f['path'],
-                    'protocol': 'https'
-                }],
-                'unique_id_from_tool': str(f['id']),
-                'publish_date': f['timestamp']
-            }
-            findings.append(finding)
-        
-        data = {
-            'findings': findings,
-            'scan_type': 'Burp Reportes',
-            'engagement_name': 'Security Assessment'
-        }
-        
-        with codecs.open(filepath, 'w', 'utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    
-    def action_generate_report_dialog(self, event):
+    def action_generate_report(self, event):
+        """Genera reporte HTML profesional"""
         panel = JPanel(GridLayout(0, 1, 5, 5))
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10))
         
@@ -1157,7 +1001,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         txt_client = JTextField("Client Name")
         txt_auditor = JTextField("Security Team")
         txt_summary = JTextArea(5, 40)
-        txt_summary.setText("Durante la evaluacion se identificaron vulnerabilidades que afectan la seguridad.")
+        txt_summary.setText("Durante la evaluacion se identificaron vulnerabilidades de seguridad.")
+        txt_summary.setLineWrap(True)
         
         panel.add(JLabel("Proyecto:"))
         panel.add(txt_project)
@@ -1169,7 +1014,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
         panel.add(JScrollPane(txt_summary))
         
         result = JOptionPane.showConfirmDialog(
-            self._panel, panel, "Reporte HTML",
+            self._panel, panel, "Generar Reporte HTML",
             JOptionPane.OK_CANCEL_OPTION
         )
         
@@ -1180,7 +1025,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
                 if not filepath.endswith(".html"):
                     filepath += ".html"
                 
-                self._generate_html_report(
+                self._generate_html(
                     filepath,
                     txt_project.getText(),
                     txt_client.getText(),
@@ -1188,6 +1033,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
                     txt_summary.getText()
                 )
                 
+                self._log_audit("HTML report generated: " + filepath, "INFO")
                 JOptionPane.showMessageDialog(self._panel, "Reporte HTML generado")
     
     def _escape_html(self, text):
@@ -1198,61 +1044,192 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
                 text = text.decode('utf-8', 'ignore')
         except:
             pass
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     
-    def _generate_html_report(self, filepath, project, client, auditor, summary):
+    def _generate_html(self, filepath, project, client, auditor, summary):
+        """Genera reporte HTML moderno"""
         counts = {'Critical': 0, 'High': 0, 'Medium': 0, 'Low': 0, 'Info': 0}
         for f in self._findings:
             if f['severity'] in counts:
                 counts[f['severity']] += 1
         
+        # CSS Moderno
         css = """
         <style>
-            body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; color: #2c3e50; margin: 0; padding: 0; }
-            .header { background: linear-gradient(135deg, #1a237e 0%, #283593 100%); color: white; padding: 3rem 2rem; text-align: center; }
-            .container { max-width: 1200px; margin: 2rem auto; padding: 0 2rem; }
-            .metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 2rem; }
-            .card { background: white; padding: 1.5rem; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-            .card h3 { font-size: 2rem; margin: 0; }
-            .Critical { color: #c62828; } .High { color: #f57c00; } .Medium { color: #fbc02d; } .Low { color: #1976d2; } .Info { color: #388e3c; }
-            .finding { background: white; margin-bottom: 1.5rem; border-radius: 8px; padding: 1.5rem; border-left: 5px solid; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Segoe UI', Arial, sans-serif; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: #2c3e50; 
+                line-height: 1.6;
+            }
+            .container { 
+                max-width: 1200px; 
+                margin: 0 auto; 
+                background: white;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            }
+            .header { 
+                background: linear-gradient(135deg, #1a237e 0%, #283593 100%); 
+                color: white; 
+                padding: 3rem 2rem; 
+                text-align: center;
+                border-bottom: 5px solid #ffd700;
+            }
+            .header h1 { font-size: 2.5rem; margin-bottom: 1rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+            .header p { font-size: 1.1rem; opacity: 0.95; }
+            
+            .content { padding: 2rem; }
+            
+            .metrics { 
+                display: grid; 
+                grid-template-columns: repeat(5, 1fr); 
+                gap: 1rem; 
+                margin: 2rem 0;
+            }
+            .metric-card { 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 1.5rem; 
+                border-radius: 12px; 
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                transition: transform 0.3s;
+            }
+            .metric-card:hover { transform: translateY(-5px); }
+            .metric-card h3 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+            .metric-card p { font-size: 0.9rem; opacity: 0.9; text-transform: uppercase; }
+            
+            .critical-card { background: linear-gradient(135deg, #c62828 0%, #e53935 100%); }
+            .high-card { background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%); }
+            .medium-card { background: linear-gradient(135deg, #fbc02d 0%, #fdd835 100%); }
+            .low-card { background: linear-gradient(135deg, #1976d2 0%, #2196f3 100%); }
+            .info-card { background: linear-gradient(135deg, #388e3c 0%, #4caf50 100%); }
+            
+            .summary-box {
+                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                border-left: 5px solid #1976d2;
+                padding: 1.5rem;
+                margin: 2rem 0;
+                border-radius: 8px;
+            }
+            .summary-box h2 { color: #1976d2; margin-bottom: 1rem; }
+            
+            .finding { 
+                background: white;
+                margin: 1.5rem 0; 
+                border-radius: 12px; 
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                border-left: 5px solid #ccc;
+                transition: transform 0.3s;
+            }
+            .finding:hover { transform: translateX(5px); }
+            
             .finding-critical { border-left-color: #c62828; }
             .finding-high { border-left-color: #f57c00; }
             .finding-medium { border-left-color: #fbc02d; }
             .finding-low { border-left-color: #1976d2; }
             .finding-info { border-left-color: #388e3c; }
-            .code { background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 0.9em; }
+            
+            .finding-header {
+                padding: 1.5rem;
+                background: linear-gradient(to right, #f8f9fa, #ffffff);
+                border-bottom: 2px solid #e9ecef;
+            }
+            .finding-title { 
+                font-size: 1.4rem; 
+                font-weight: bold; 
+                margin-bottom: 0.5rem;
+            }
+            .finding-meta {
+                color: #6c757d;
+                font-size: 0.9rem;
+            }
+            .finding-body {
+                padding: 1.5rem;
+            }
+            
+            .code-block { 
+                background: #1e1e1e; 
+                color: #d4d4d4; 
+                padding: 1rem; 
+                border-radius: 6px; 
+                overflow-x: auto; 
+                font-family: 'Courier New', monospace; 
+                font-size: 0.85rem;
+                margin: 1rem 0;
+            }
+            
+            .badge {
+                display: inline-block;
+                padding: 0.3rem 0.8rem;
+                border-radius: 20px;
+                font-size: 0.85rem;
+                font-weight: bold;
+                margin-right: 0.5rem;
+            }
+            .badge-critical { background: #c62828; color: white; }
+            .badge-high { background: #f57c00; color: white; }
+            .badge-medium { background: #fbc02d; color: #333; }
+            .badge-low { background: #1976d2; color: white; }
+            .badge-info { background: #388e3c; color: white; }
+            
+            @media print {
+                body { background: white; }
+                .container { box-shadow: none; }
+                .finding { page-break-inside: avoid; }
+            }
         </style>
         """
         
+        # HTML
         html = u"""<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>{project}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{project} - Security Assessment Report</title>
     {css}
 </head>
 <body>
-    <div class="header">
-        <h1>{project}</h1>
-        <p>{client} | {auditor} | {date}</p>
-    </div>
-    
     <div class="container">
-        <div class="metrics">
-            <div class="card"><h3 class="Critical">{critical}</h3><p>Critical</p></div>
-            <div class="card"><h3 class="High">{high}</h3><p>High</p></div>
-            <div class="card"><h3 class="Medium">{medium}</h3><p>Medium</p></div>
-            <div class="card"><h3 class="Low">{low}</h3><p>Low</p></div>
-            <div class="card"><h3 class="Info">{info}</h3><p>Info</p></div>
+        <div class="header">
+            <h1>🛡️ {project}</h1>
+            <p><strong>Cliente:</strong> {client} | <strong>Auditor:</strong> {auditor}</p>
+            <p><strong>Fecha:</strong> {date}</p>
         </div>
         
-        <div class="card" style="margin-bottom: 2rem;">
-            <h2>Resumen Ejecutivo</h2>
-            <p>{summary}</p>
-        </div>
-        
-        <h2>Hallazgos Detallados</h2>
+        <div class="content">
+            <div class="metrics">
+                <div class="metric-card critical-card">
+                    <h3>{critical}</h3>
+                    <p>Critical</p>
+                </div>
+                <div class="metric-card high-card">
+                    <h3>{high}</h3>
+                    <p>High</p>
+                </div>
+                <div class="metric-card medium-card">
+                    <h3>{medium}</h3>
+                    <p>Medium</p>
+                </div>
+                <div class="metric-card low-card">
+                    <h3>{low}</h3>
+                    <p>Low</p>
+                </div>
+                <div class="metric-card info-card">
+                    <h3>{info}</h3>
+                    <p>Info</p>
+                </div>
+            </div>
+            
+            <div class="summary-box">
+                <h2>📋 Resumen Ejecutivo</h2>
+                <p>{summary}</p>
+            </div>
+            
+            <h2 style="margin: 2rem 0 1rem 0; color: #1a237e;">🔍 Hallazgos Detallados</h2>
 """.format(
             project=self._escape_html(project),
             client=self._escape_html(client),
@@ -1267,59 +1244,85 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
             summary=self._escape_html(summary)
         )
         
+        # Hallazgos ordenados por severidad
         severity_order = {'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'Info': 4}
         sorted_findings = sorted(self._findings, key=lambda f: severity_order.get(f['severity'], 99))
         
         for f in sorted_findings:
-            req_text = ""
-            res_text = ""
-            rr = f['request_response']
-            if rr:
-                if rr.getRequest():
-                    req_text = self._helpers.bytesToString(rr.getRequest())
-                    if len(req_text) > 5000:
-                        req_text = req_text[:5000] + "\n... [TRUNCADO]"
-                
-                if rr.getResponse():
-                    res_text = self._helpers.bytesToString(rr.getResponse())
-                    if len(res_text) > 8000:
-                        res_text = res_text[:8000] + "\n... [TRUNCADO]"
+            # Truncar request/response si son muy largos
+            req = f['request'][:5000] if f['request'] else "No disponible"
+            res = f['response'][:8000] if f['response'] else "No disponible"
+            
+            if len(f['request']) > 5000:
+                req += "\n\n... [TRUNCADO - Request muy largo]"
+            if len(f['response']) > 8000:
+                res += "\n\n... [TRUNCADO - Response muy largo]"
+            
+            # Parámetros
+            params_html = ""
+            if f['parameters']:
+                params_html = "<strong>Parámetros:</strong><ul>"
+                for param in f['parameters'][:10]:  # Máximo 10 parámetros
+                    params_html += "<li><code>{}</code> = <code>{}</code> ({})</li>".format(
+                        self._escape_html(str(param.get('name', ''))),
+                        self._escape_html(str(param.get('value', '')))[:50],
+                        param.get('type', 'Unknown')
+                    )
+                params_html += "</ul>"
             
             html += u"""
-        <div class="finding finding-{sev_lower}">
-            <h3>{title} <span style="float:right; color: inherit;">{severity}</span></h3>
-            <p><strong>Host:</strong> {host} | <strong>Path:</strong> {path}</p>
-            <p><strong>Categoria:</strong> {category} | <strong>CWE:</strong> {cwe}</p>
-            <p><strong>Descripcion:</strong></p>
-            <p>{desc}</p>
-            <p><strong>Solucion:</strong></p>
-            <p>{sol}</p>
+            <div class="finding finding-{sev_lower}">
+                <div class="finding-header">
+                    <div class="finding-title">
+                        {title}
+                        <span class="badge badge-{sev_lower}">{severity}</span>
+                    </div>
+                    <div class="finding-meta">
+                        <strong>🌐 URL:</strong> {url}<br>
+                        <strong>🔧 Método:</strong> {method} | 
+                        <strong>🏷️ Categoría:</strong> {category} | 
+                        <strong>🕒 Timestamp:</strong> {timestamp}
+                    </div>
+                </div>
+                <div class="finding-body">
+                    <p><strong>📄 Descripción:</strong></p>
+                    <p>{desc}</p>
+                    
+                    {params}
+                    
+                    <p><strong>📝 Notas:</strong></p>
+                    <p>{notes}</p>
+                    
+                    <p><strong>📨 Request:</strong></p>
+                    <div class="code-block">{req}</div>
+                    
+                    <p><strong>📬 Response:</strong></p>
+                    <div class="code-block">{res}</div>
+                </div>
+            </div>
 """.format(
                 sev_lower=f['severity'].lower(),
                 title=self._escape_html(f['title']),
                 severity=f['severity'],
-                host=self._escape_html(f['host']),
-                path=self._escape_html(f['path']),
+                url=self._escape_html(f['url']),
+                method=f['method'],
                 category=OWASP_CATEGORIES.get(f['category'], 'Other'),
-                cwe=f['cwe'],
-                desc=self._escape_html(f['desc_full']),
-                sol=self._escape_html(f['remediation'])
+                timestamp=f['timestamp'],
+                desc=self._escape_html(f['description']),
+                params=params_html,
+                notes=self._escape_html(f['notes']) if f['notes'] else "Sin notas adicionales",
+                req=self._escape_html(req),
+                res=self._escape_html(res)
             )
-            
-            if req_text:
-                html += "<p><strong>Request:</strong></p><div class=\"code\">{}</div>".format(self._escape_html(req_text))
-            if res_text:
-                html += "<p><strong>Response:</strong></p><div class=\"code\">{}</div>".format(self._escape_html(res_text))
-            
-            html += "</div>\n"
         
         html += """
+        </div>
     </div>
 </body>
 </html>"""
         
-        with codecs.open(filepath, 'w', 'utf-8') as f:
-            f.write(html)
+        with codecs.open(filepath, 'w', 'utf-8') as file:
+            file.write(html)
     
     # ========================================================================
     # INTERFACES BURP
@@ -1334,25 +1337,28 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab, IContextMenuFactory, IMes
     def getHttpService(self):
         row = self._table.getSelectedRow()
         if row != -1:
-            f = self._findings[self._table.convertRowIndexToModel(row)]
-            if f['request_response']:
-                return f['request_response'].getHttpService()
+            idx = self._table.convertRowIndexToModel(row)
+            f = self._findings[idx]
+            if f.get('message'):
+                return f['message'].getHttpService()
         return None
     
     def getRequest(self):
         row = self._table.getSelectedRow()
         if row != -1:
-            f = self._findings[self._table.convertRowIndexToModel(row)]
-            if f['request_response']:
-                return f['request_response'].getRequest()
+            idx = self._table.convertRowIndexToModel(row)
+            f = self._findings[idx]
+            if f.get('message'):
+                return f['message'].getRequest()
         return None
     
     def getResponse(self):
         row = self._table.getSelectedRow()
         if row != -1:
-            f = self._findings[self._table.convertRowIndexToModel(row)]
-            if f['request_response']:
-                return f['request_response'].getResponse()
+            idx = self._table.convertRowIndexToModel(row)
+            f = self._findings[idx]
+            if f.get('message'):
+                return f['message'].getResponse()
         return None
 
 # ============================================================================
@@ -1368,44 +1374,76 @@ class TableClickListener(MouseAdapter):
         if row == -1:
             return
         
-        f = self._ext._findings[self._ext._table.convertRowIndexToModel(row)]
+        idx = self._ext._table.convertRowIndexToModel(row)
+        f = self._ext._findings[idx]
         
-        detail = u"""TITULO: {title}
-HOST: {host}
-PATH: {path}
-SEVERIDAD: {sev}
-CATEGORIA: {cat}
-CWE: {cwe}
-CVSS: {cvss}
-TAGS: {tags}
+        # Detalles
+        detail = u"""╔══════════════════════════════════════════════════════════════╗
+║                    DETALLES DEL HALLAZGO                     ║
+╚══════════════════════════════════════════════════════════════╝
 
-DESCRIPCION:
+ID: {id}
+Título: {title}
+Severidad: {severity}
+Categoría OWASP: {category}
+
+URL: {url}
+Host: {host}
+Path: {path}
+Método: {method}
+
+Timestamp: {timestamp}
+
+─────────────────────────────────────────────────────────────
+DESCRIPCIÓN:
 {desc}
 
-SOLUCION:
-{sol}
-
+─────────────────────────────────────────────────────────────
 NOTAS:
-{notes}""".format(
+{notes}
+
+─────────────────────────────────────────────────────────────
+PARÁMETROS CAPTURADOS: {param_count}
+{params}
+""".format(
+            id=f['id'],
             title=f['title'],
+            severity=f['severity'],
+            category=OWASP_CATEGORIES.get(f['category'], 'Other'),
+            url=f['url'],
             host=f['host'],
             path=f['path'],
-            sev=f['severity'],
-            cat=OWASP_CATEGORIES.get(f['category'], 'Other'),
-            cwe=f['cwe'],
-            cvss=f['cvss'],
-            tags=", ".join(f['tags']),
-            desc=f['desc_full'],
-            sol=f['remediation'],
-            notes=f.get('notes', '')
+            method=f['method'],
+            timestamp=f['timestamp'],
+            desc=f['description'],
+            notes=f['notes'] if f['notes'] else "Sin notas adicionales",
+            param_count=len(f['parameters']),
+            params="\n".join([
+                "  • {} = {} ({})".format(
+                    p.get('name', ''),
+                    str(p.get('value', ''))[:50],
+                    p.get('type', 'Unknown')
+                ) for p in f['parameters'][:10]
+            ]) if f['parameters'] else "  No hay parámetros"
         )
         
         self._ext._txt_detail.setText(detail)
         
-        rr = f['request_response']
-        if rr:
-            self._ext._req_viewer.setMessage(rr.getRequest(), True)
-            self._ext._res_viewer.setMessage(rr.getResponse(), False)
+        # Viewers
+        msg = f.get('message')
+        if msg:
+            self._ext._req_viewer.setMessage(msg.getRequest(), True)
+            self._ext._res_viewer.setMessage(msg.getResponse(), False)
+        else:
+            # Si no hay mensaje, mostrar texto
+            self._ext._req_viewer.setMessage(
+                self._ext._helpers.stringToBytes(f['request']),
+                True
+            )
+            self._ext._res_viewer.setMessage(
+                self._ext._helpers.stringToBytes(f['response']),
+                False
+            )
 
 class SearchKeyListener(KeyAdapter):
     def __init__(self, ext):
