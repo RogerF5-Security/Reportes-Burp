@@ -488,32 +488,50 @@ class BurpExtender(IBurpExtender, ITab, IContextMenuFactory, IMessageEditorContr
         self._show_capture_dialog(url, method, headers, params_list, request_str, response_str, message)
     
     def _show_capture_dialog(self, url, method, headers, params, request_str, response_str, message):
-        """Diálogo mejorado para captura de hallazgo"""
-        panel = JPanel(GridLayout(0, 1, 10, 10))
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15))
+        """Dialogo compacto con scroll para captura de hallazgo"""
+        from javax.swing import JDialog, Box
+        
+        # Crear dialogo modal
+        dialog = JDialog()
+        dialog.setTitle("Agregar Hallazgo")
+        dialog.setModal(True)
+        
+        # Panel principal
+        main_panel = JPanel(BorderLayout())
+        
+        # Panel de contenido con scroll
+        content_panel = JPanel()
+        content_panel.setLayout(BoxLayout(content_panel, BoxLayout.Y_AXIS))
+        content_panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10))
         
         # Plantilla
         vuln_names = sorted(VULN_DB.keys())
         combo_template = JComboBox(["[Personalizado]"] + vuln_names)
-        combo_template.setFont(Font("Dialog", Font.PLAIN, 11))
+        combo_template.setFont(Font("Dialog", Font.PLAIN, 10))
+        combo_template.setMaximumSize(Dimension(380, 22))
         
-        # Campos
+        # Titulo
         txt_title = JTextField()
-        txt_title.setFont(Font("Dialog", Font.PLAIN, 11))
+        txt_title.setFont(Font("Dialog", Font.PLAIN, 10))
+        txt_title.setMaximumSize(Dimension(380, 22))
         
+        # Severidad
         combo_sev = JComboBox(["Critical", "High", "Medium", "Low", "Info"])
-        combo_sev.setFont(Font("Dialog", Font.PLAIN, 11))
+        combo_sev.setFont(Font("Dialog", Font.PLAIN, 10))
+        combo_sev.setMaximumSize(Dimension(380, 22))
         
-        txt_desc = JTextArea(8, 50)
-        txt_desc.setFont(Font("Monospaced", Font.PLAIN, 10))
+        # Descripcion
+        txt_desc = JTextArea(3, 35)
+        txt_desc.setFont(Font("Monospaced", Font.PLAIN, 9))
         txt_desc.setLineWrap(True)
         txt_desc.setWrapStyleWord(True)
         
-        txt_notes = JTextArea(4, 50)
-        txt_notes.setFont(Font("Monospaced", Font.PLAIN, 10))
+        # Notas
+        txt_notes = JTextArea(2, 35)
+        txt_notes.setFont(Font("Monospaced", Font.PLAIN, 9))
         txt_notes.setLineWrap(True)
         
-        # Auto-completar al seleccionar plantilla
+        # Auto-completar
         def template_changed(e):
             sel = str(combo_template.getSelectedItem())
             if sel != "[Personalizado]" and sel in VULN_DB:
@@ -524,61 +542,83 @@ class BurpExtender(IBurpExtender, ITab, IContextMenuFactory, IMessageEditorContr
         
         combo_template.addActionListener(lambda e: template_changed(e))
         
-        # Agregar componentes
-        panel.add(JLabel("Plantilla de Vulnerabilidad:"))
-        panel.add(combo_template)
+        # Agregar campos
+        def add_field(label_text, component):
+            lbl = JLabel(label_text)
+            lbl.setFont(Font("Dialog", Font.BOLD, 9))
+            lbl.setAlignmentX(0.0)
+            content_panel.add(lbl)
+            component.setAlignmentX(0.0)
+            content_panel.add(component)
+            content_panel.add(Box.createRigidArea(Dimension(0, 3)))
         
-        panel.add(JLabel("Titulo del Hallazgo:"))
-        panel.add(txt_title)
+        add_field("Plantilla:", combo_template)
+        add_field("Titulo:", txt_title)
+        add_field("Severidad:", combo_sev)
         
-        panel.add(JLabel("Severidad:"))
-        panel.add(combo_sev)
+        # Descripcion con scroll
+        content_panel.add(JLabel("Descripcion:"))
+        scroll_desc = JScrollPane(txt_desc)
+        scroll_desc.setMaximumSize(Dimension(380, 60))
+        scroll_desc.setAlignmentX(0.0)
+        content_panel.add(scroll_desc)
+        content_panel.add(Box.createRigidArea(Dimension(0, 3)))
         
-        panel.add(JLabel("Descripcion Detallada:"))
-        panel.add(JScrollPane(txt_desc))
+        # Notas con scroll
+        content_panel.add(JLabel("Notas:"))
+        scroll_notes = JScrollPane(txt_notes)
+        scroll_notes.setMaximumSize(Dimension(380, 45))
+        scroll_notes.setAlignmentX(0.0)
+        content_panel.add(scroll_notes)
+        content_panel.add(Box.createRigidArea(Dimension(0, 3)))
         
-        panel.add(JLabel("Notas Adicionales:"))
-        panel.add(JScrollPane(txt_notes))
+        # Info
+        url_short = url.toString()[:55] + "..." if len(url.toString()) > 55 else url.toString()
+        info_label = JLabel("URL: {} | {} | Params: {}".format(url_short, method, len(params)))
+        info_label.setFont(Font("Dialog", Font.PLAIN, 8))
+        info_label.setForeground(Color(120, 120, 120))
+        info_label.setAlignmentX(0.0)
+        content_panel.add(info_label)
         
-        # Información auto-capturada
-        info_panel = JPanel(FlowLayout(FlowLayout.LEFT))
-        info_panel.setBorder(BorderFactory.createTitledBorder("Informacion Auto-Capturada"))
+        # Scroll
+        scroll_pane = JScrollPane(content_panel)
+        scroll_pane.setPreferredSize(Dimension(420, 350))
+        scroll_pane.getVerticalScrollBar().setUnitIncrement(16)
+        main_panel.add(scroll_pane, BorderLayout.CENTER)
         
-        info_text = """URL: {}
-Metodo: {}
-Parametros: {}
-Headers: {} headers capturados
-Request: {} bytes
-Response: {} bytes""".format(
-            url.toString(),
-            method,
-            len(params),
-            len(headers),
-            len(request_str),
-            len(response_str)
-        )
+        # Botones
+        button_panel = JPanel(FlowLayout(FlowLayout.RIGHT))
+        btn_ok = JButton("Agregar")
+        btn_cancel = JButton("Cancelar")
         
-        info_label = JTextArea(info_text)
-        info_label.setEditable(False)
-        info_label.setBackground(Color(240, 248, 255))
-        info_label.setFont(Font("Monospaced", Font.PLAIN, 9))
-        info_panel.add(info_label)
+        result_holder = [False]
         
-        panel.add(info_panel)
+        def on_ok(e):
+            result_holder[0] = True
+            dialog.dispose()
         
-        # Mostrar diálogo
-        result = JOptionPane.showConfirmDialog(
-            None, panel, "Agregar Hallazgo a Reportes",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
-        )
+        def on_cancel(e):
+            dialog.dispose()
         
-        if result == JOptionPane.OK_OPTION:
+        btn_ok.addActionListener(on_ok)
+        btn_cancel.addActionListener(on_cancel)
+        button_panel.add(btn_ok)
+        button_panel.add(btn_cancel)
+        main_panel.add(button_panel, BorderLayout.SOUTH)
+        
+        # Mostrar dialogo
+        dialog.setContentPane(main_panel)
+        dialog.pack()
+        dialog.setLocationRelativeTo(None)
+        dialog.setVisible(True)
+        
+        # Procesar
+        if result_holder[0]:
             title = txt_title.getText().strip()
             if not title:
                 JOptionPane.showMessageDialog(None, "El titulo es obligatorio")
                 return
             
-            # Crear hallazgo completo
             self._add_finding(
                 title=title,
                 severity=str(combo_sev.getSelectedItem()),
@@ -596,7 +636,7 @@ Response: {} bytes""".format(
             )
             
             self._log_audit("Finding added: " + title, "INFO")
-            JOptionPane.showMessageDialog(None, "Hallazgo agregado correctamente")
+            JOptionPane.showMessageDialog(None, "Hallazgo agregado")
     
     def _add_finding(self, title, severity, description, notes, url, host, path, 
                      method, headers, parameters, request_str, response_str, message):
@@ -682,11 +722,11 @@ Response: {} bytes""".format(
                 counts[sev] += 1
         
         self._lbl_total.setText("Total: {}".format(len(self._findings)))
-        self._lbl_critical.setText("🔴 Critical: {}".format(counts['Critical']))
-        self._lbl_high.setText("🟠 High: {}".format(counts['High']))
-        self._lbl_medium.setText("🟡 Medium: {}".format(counts['Medium']))
-        self._lbl_low.setText("🔵 Low: {}".format(counts['Low']))
-        self._lbl_info.setText("🟢 Info: {}".format(counts['Info']))
+        self._lbl_critical.setText("Critical: {}".format(counts['Critical']))
+        self._lbl_high.setText("High: {}".format(counts['High']))
+        self._lbl_medium.setText("Medium: {}".format(counts['Medium']))
+        self._lbl_low.setText("Low: {}".format(counts['Low']))
+        self._lbl_info.setText("Info: {}".format(counts['Info']))
     
     # ========================================================================
     # ACCIONES DE BOTONES
@@ -1261,7 +1301,7 @@ Response: {} bytes""".format(
             # Parámetros
             params_html = ""
             if f['parameters']:
-                params_html = "<strong>Parámetros:</strong><ul>"
+                params_html = "<strong>Parametros:</strong><ul>"
                 for param in f['parameters'][:10]:  # Máximo 10 parámetros
                     params_html += "<li><code>{}</code> = <code>{}</code> ({})</li>".format(
                         self._escape_html(str(param.get('name', ''))),
